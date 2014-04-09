@@ -1,0 +1,31 @@
+# We use modified versions of the MAXDET software (license below)
+# to solve some of our optimization problems
+
+MAXDET, version ALPHA, April 1996.
+
+COPYRIGHT 1996 SHAO-PO WU, LIEVEN VANDENBERGHE AND STEPHEN BOYD
+Permission to use, copy, modify, and distribute this software for 
+any purpose without fee is hereby granted, provided that this entire 
+notice is included in all copies of any software which is or includes
+a copy or modification of this software and in all copies of the 
+supporting documentation for such software.
+This software is being provided "as is", without any express or 
+implied warranty.  In particular, the authors do not make any
+representation or warranty of any kind concerning the merchantability
+of this software or its fitness for any particular purpose.
+
+
+This directory contains C sources and MATLAB files of MAXDET.
+
+  DOC      -- documentation and the companion paper.
+  EXAMPLES -- MATLAB example files.
+
+  maxdet.mexds  -- MATLAB mex file for DECstations (e.g. DEC 5000)
+  maxdet.mex4   -- MATLAB mex file for SUN4 stations (e.g. Sparc)
+  maxdet.mexhp7 -- MATLAB mex file for HP workstation 9000/700 series
+
+  C sources contains:
+    maxdet.h      -- the header file
+    maxdet.c      -- MATLAB-C gateway routine
+    maxdet_src.c  -- maxdet source
+
