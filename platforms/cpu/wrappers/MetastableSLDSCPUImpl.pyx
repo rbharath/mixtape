@@ -1,7 +1,13 @@
+####################################################################
+#    Copyright (c) 2013, Stanford University and the Authors       #
+#    Author: Robert McGibbon <rmcgibbo@gmail.com>                  #
+#    Contributors: Bharath Ramsundar <bharath.ramsundar@gmail.com> #
+#                                                                  #
+####################################################################
+
+
 import numpy as np
 from sklearn.hmm import GaussianHMM
-
-
 from libcpp cimport bool
 cimport numpy as np
 from libc.stdlib cimport malloc, free
