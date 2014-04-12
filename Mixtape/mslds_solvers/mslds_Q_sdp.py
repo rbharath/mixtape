@@ -167,6 +167,15 @@ def construct_const_matrix(x_dim, A, B, D):
 
 
 def solve_Q(x_dim, A, B, D, max_iters, show_display):
+    """
+    CVXOPT solution for the Q optimization problem
+
+    (DESCRIBE PROBLEM)
+
+    WARNING: This solution is incomplete since it does not include
+    the log-det penalty. Figure out a way to state the log-det penalty
+    within the SDP framework.
+    """
     # x = [s vec(Z) vec(Q)]
     epsilon = np.finfo(np.float32).eps
     F = real(sqrtm(B + epsilon * eye(x_dim)))
