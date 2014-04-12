@@ -276,21 +276,3 @@ def solve_A(x_dim, B, C, E, D, Q, max_iters, show_display):
     return sol, c, Gs, hs
 
 
-def test_A_generate_constraints(x_dim):
-    # Define constants
-    xs = zeros((2, x_dim))
-    xs[0] = ones(x_dim)
-    xs[1] = 2 * ones(x_dim)
-    b = 0.5 * ones((x_dim, 1))
-    Q = eye(x_dim)
-    D = 2 * eye(x_dim)
-    B = outer(xs[1], xs[0])
-    E = outer(xs[0], xs[0])
-    C = outer(b, xs[0])
-    return B, C, E, D, Q
-
-
-def test_A_solve_sdp(x_dim):
-    B, C, E, D, Q = test_A_generate_constraints(x_dim)
-    sol, c, G, h = solve_A(x_dim, B, C, E, D, Q)
-    return sol, c, G, h, B, C, E, D, Q
