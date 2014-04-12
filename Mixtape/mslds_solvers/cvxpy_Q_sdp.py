@@ -1,7 +1,10 @@
 import numpy as np
 import scipy.linalg
 import cvxpy as cvx
+import pdb
+import time
 import mixtape.mslds_solvers.mslds_Q_sdp as Q_sdp
+from mixtape.utils import reinflate_cvxpy, reinflate_cvxopt
 
 def cvx_Q_solve(dim, A, B, D):
     # Compute intermediate quantities
@@ -35,10 +38,10 @@ def cvx_Q_solve(dim, A, B, D):
      ## Z >= 0
      #lambda_min(Z) >= 0]
 
-    obj = cvx.Minimize(s * dim + sum(Z[range(dim),range(dim)]))
+    obj = cvx.Minimize(s * dim + sum([Z[i,i] for i in range(dim)]))
     prob = cvx.Problem(obj, constraints)
     prob.solve()
-    return prob, s, Q, Z
+    return prob, s, Z, Q
 
 def test_Q_generate_constraints(x_dim):
     # Define constants
@@ -54,33 +57,52 @@ def test_Q_generate_constraints(x_dim):
     B = np.dot(v, v.T)
     return A, B, D
 
+def cvxtest_Q_solve_sdp(x_dims):
+    for x_dim in x_dims:
+        print "x_dim", x_dim
+        A, B, D = test_Q_generate_constraints(x_dim)
+        start = time.clock()
+        prob, s, Z, Q = cvx_Q_solve(x_dim, A, B, D)
+        elapsed = (time.clock() - start)
+        print "\tCVXPY"
+        print "\ttime elapsed:", elapsed
+        print "\tstatus:", prob.status
+        print "\toptimal value:", prob.value
+        print "\toptimal s:", s.value
+        print "\toriginal Z:\n", Z.value
+        print "\toptimal Z:\n", reinflate_cvxpy(Z.value)
+        print "\toriginal Q:\n", Q.value
+        print "\toptimal Q:\n", reinflate_cvxpy(Q.value)
+        print
+    print
 
-def cvxtest_Q_solve_sdp():
-    x_dim = 1
-    A, B, D = test_Q_generate_constraints(x_dim)
-    prob, s, Q, Z = cvx_Q_solve(x_dim, A, B, D)
-    print("CVXPY")
-    print("status:", prob.status)
-    print("optimal value:", prob.value)
-    print("optimal s:", s.value)
-    print("optimal Z:", Z.value)
-    print("optimal Q:", Q.value)
 
-def test_Q_solve_sdp():
-    x_dim = 1
+def test_Q_solve_sdp(x_dims):
     max_iters = 100
     show_display = False
-    A, B, D = test_Q_generate_constraints(x_dim)
-    sol, c, Gs, hs = Q_sdp.solve_Q(x_dim, A, B, D, max_iters, show_display)
-    x = np.array(sol['x'])
-    print("CVXOPT")
-    print("status:", sol['status'])
-    print("primal objective:", sol['primal objective'])
-    print("dual objective:", sol['dual objective'])
-    print("optimal s:", x[0])
-    print("optimal Z:", x[1:x_dim**2+1])
-    print("optimal Q:", x[x_dim**2+1:2*x_dim**2+1])
-    return sol, c, Gs, hs
+    for x_dim in x_dims:
+        print "x_dim", x_dim
+        A, B, D = test_Q_generate_constraints(x_dim)
+        start = time.clock()
+        sol, c, Gs, hs = Q_sdp.solve_Q(x_dim, A, B, D, max_iters,
+                show_display)
+        elapsed = (time.clock() - start)
+        x = np.array(sol['x'])
+        print "\tCVXOPT"
+        print "\ttime elapsed:", elapsed
+        print "\tstatus:", sol['status']
+        print "\tprimal objective:", sol['primal objective']
+        print "\tdual objective:", sol['dual objective']
+        print "\toptimal s:", x[0]
+        z = x[1:int(x_dim*(x_dim+1)/2+1)]
+        Z = reinflate_cvxopt(x_dim, z)
+        print "\toptimal Z:\n", Z
+        q = x[int(x_dim*(x_dim+1)/2+1):]
+        Q = reinflate_cvxopt(x_dim, q)
+        print "\toptimal Q:\n", Q
+        print
+    print
 
-cvxtest_Q_solve_sdp()
-sol, c, Gs, hs = test_Q_solve_sdp()
+x_dims = [5]
+cvxtest_Q_solve_sdp(x_dims)
+test_Q_solve_sdp(x_dims)
