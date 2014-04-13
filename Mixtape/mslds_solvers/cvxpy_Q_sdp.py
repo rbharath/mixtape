@@ -4,6 +4,36 @@ import cvxpy as cvx
 import mixtape.mslds_solvers.mslds_Q_sdp as Q_sdp
 
 def cvx_Q_solve(dim, A, B, D):
+
+    # Numerical stability tranformations copied over from
+    # CVXOPT implementation
+
+    # Scale objective down by S for numerical stability
+    eigs = eig(B)[0]
+    # B may be a zero matrix (if no datapoints were associated here).
+    S = max(abs(max(eigs)), abs(min(eigs)))
+    if S != 0.:
+        B = B / S
+    else:
+        B = B
+    # Ensure that D doesn't have negative eigenvals
+    # due to numerical issues
+    min_D_eig = min(eig(D)[0])
+    if min_D_eig < 0:
+        # assume abs(min_D_eig) << 1
+        D = D + 2 * abs(min_D_eig) * eye(x_dim)
+    # Ensure that D - A D A.T is PSD. Otherwise, the problem is
+    # unsolvable and weird numerical artifacts can occur.
+    min_Q_eig = min(eig(D - dot(A, dot(D, A.T)))[0])
+    if min_Q_eig < 0:
+        # Scale A downwards until D - A D A.T is PSD
+        eta = 0.99
+        power = 1
+        while (min(eig(D - dot((eta ** power) * A,
+                               dot(D, (eta ** power) * A.T)))[0]) < 0):
+            power += 1
+        A = (eta ** power) * A
+
     # Compute intermediate quantities
     # Smallest number epsilon such that 1. + epsilon != 1.
     epsilon = np.finfo(np.float32).eps
@@ -30,10 +60,6 @@ def cvx_Q_solve(dim, A, B, D):
      S2[:dim, dim:] == A,
      S2[dim:, :dim] == A.T,
      S2[dim:, dim:] == Dinv]
-     ## Q >= 0
-     #lambda_min(Q) >= 0,
-     ## Z >= 0
-     #lambda_min(Z) >= 0]
 
     obj = cvx.Minimize(s * dim + sum([Z[i,i] for i in range(dim)]))
     prob = cvx.Problem(obj, constraints)

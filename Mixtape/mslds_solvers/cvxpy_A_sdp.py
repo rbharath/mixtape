@@ -5,6 +5,25 @@ import mixtape.mslds_solvers.mslds_A_sdp as A_sdp
 
 def cvx_A_solve(dim, B, C, E, D, Q):
 
+    # Numerical stability tranformations copied over from
+    # CVXOPT implementation
+
+    # Scale input matrices down by S (see below) for numerical stability
+    eigsQinv = max([abs(1. / q) for q in eig(Q)[0]])
+    eigsE = max([abs(e) for e in eig(E)[0]])
+    eigsCB = max([abs(cb) for cb in eig(C - B)[0]])
+    S = max(eigsQinv, eigsE, eigsCB)
+    Q = Q / S
+    E = E / S
+    C = C / S
+    B = B / S
+    # Ensure that D doesn't have negative eigenvals
+    # due to numerical issues
+    min_D_eig = min(eig(D)[0])
+    if min_D_eig < 0:
+        # assume abs(min_D_eig) << 1
+        D = D + 2 * abs(min_D_eig) * eye(x_dim)
+
     # Smallest number epsilon such that 1. + epsilon != 1.
     epsilon = np.finfo(np.float32).eps
     J = np.real(scipy.linalg.sqrtm(scipy.linalg.pinv2(Q)
