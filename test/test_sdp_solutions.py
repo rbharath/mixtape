@@ -74,7 +74,6 @@ def test_A_solve_sdp(x_dims):
         print
     print
 
-
 def cvxtest_Q_solve_sdp(x_dims):
     for x_dim in x_dims:
         print "x_dim", x_dim
@@ -88,10 +87,13 @@ def cvxtest_Q_solve_sdp(x_dims):
         print "\toptimal value:", prob.value
         print "\toptimal s:", s.value
         print "\toriginal Z:\n", Z.value
+        print "\ttype(Z.value):", type(np.array(Z.value))
+        print "\tnew Z:", np.array(Z.value)
         print "\toriginal Q:\n", Q.value
+        print "\ttype(Q.value):", type(np.array(Q.value))
+        print "\tnew Q:", np.array(Q.value)
         print
     print
-
 
 def test_Q_solve_sdp(x_dims):
     max_iters = 100
@@ -132,4 +134,3 @@ def test2():
 if __name__ == "__main__":
     test1()
     test2()
-
