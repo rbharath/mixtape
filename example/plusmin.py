@@ -64,12 +64,12 @@ if LEARN:
     cvxpy_l.fit(xs)
     cvxpy_mslds_score = cvxpy_l.score(xs)
     print("CVXPY MSLDS Log-Likelihood = %f" %  cvxpy_mslds_score)
-    # Fit CVXOPT Metastable Switcher
-    cvxopt_l = MetastableSwitchingLDS(K, x_dim, n_hotstart=NUM_HOTSTART,
-            n_em_iter=NUM_ITERS, solver='cvxopt')
-    cvxopt_l.fit(xs)
-    cvxopt_mslds_score = cvxopt_l.score(xs)
-    print("CVXOPT MSLDS Log-Likelihood = %f" %  cvxopt_mslds_score)
+    ## Fit CVXOPT Metastable Switcher
+    #cvxopt_l = MetastableSwitchingLDS(K, x_dim, n_hotstart=NUM_HOTSTART,
+    #        n_em_iter=NUM_ITERS, solver='cvxopt')
+    #cvxopt_l.fit(xs)
+    #cvxopt_mslds_score = cvxopt_l.score(xs)
+    #print("CVXOPT MSLDS Log-Likelihood = %f" %  cvxopt_mslds_score)
     # Fit Gaussian HMM for comparison
     g = GaussianFusionHMM(K, x_dim)
     g.fit(xs)
@@ -89,7 +89,7 @@ if PLOT:
     plt.figure(1)
     plt.plot(range(T), xs[0], label="Observations")
     if LEARN:
-        plt.plot(range(T), cvxopt_sim_xs[0], label='CVXOPT')
+        #plt.plot(range(T), cvxopt_sim_xs[0], label='CVXOPT')
         plt.plot(range(T), cvxpy_sim_xs[0], label='CVXPY')
     plt.legend()
     plt.show()

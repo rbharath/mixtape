@@ -4,14 +4,23 @@ import cvxpy as cvx
 import mixtape.mslds_solvers.mslds_A_sdp as A_sdp
 
 def cvx_A_solve(dim, B, C, E, D, Q):
+    """
+    Inputs should satisfy the following properties
+
+    1) E is PD
+    2) Q is PD
+    3) D is PD
+    4) C is a rank one matrix
+    4) D - Q is PSD
+    """
 
     # Numerical stability tranformations copied over from
     # CVXOPT implementation
 
     # Scale input matrices down by S (see below) for numerical stability
-    eigsQinv = max([abs(1. / q) for q in eig(Q)[0]])
-    eigsE = max([abs(e) for e in eig(E)[0]])
-    eigsCB = max([abs(cb) for cb in eig(C - B)[0]])
+    eigsQinv = max([abs(1. / q) for q in np.linalg.eig(Q)[0]])
+    eigsE = max([abs(e) for e in np.linalg.eig(E)[0]])
+    eigsCB = max([abs(cb) for cb in np.linalg.eig(C - B)[0]])
     S = max(eigsQinv, eigsE, eigsCB)
     Q = Q / S
     E = E / S
@@ -19,10 +28,10 @@ def cvx_A_solve(dim, B, C, E, D, Q):
     B = B / S
     # Ensure that D doesn't have negative eigenvals
     # due to numerical issues
-    min_D_eig = min(eig(D)[0])
+    min_D_eig = min(np.linalg.eig(D)[0])
     if min_D_eig < 0:
         # assume abs(min_D_eig) << 1
-        D = D + 2 * abs(min_D_eig) * eye(x_dim)
+        D = D + 2 * abs(min_D_eig) * np.eye(x_dim)
 
     # Smallest number epsilon such that 1. + epsilon != 1.
     epsilon = np.finfo(np.float32).eps
