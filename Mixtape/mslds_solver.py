@@ -349,7 +349,7 @@ def A_solve(block_dim, B, C, D, E, Q, mu, interactive=False,
         set_entries(X_init, A_2_cds, const*np.eye(block_dim))
         set_entries(X_init, A_T_2_cds, const*np.eye(block_dim))
         set_entries(X_init, I_2_cds, np.eye(block_dim))
-        X_init = X_init + (1e-2)*np.eye(dim)
+        X_init = X_init + (1e-1)*np.eye(dim)
         if min(np.linalg.eigh(X_init)[0]) < 0:
             X_init = None
             const = const * factor

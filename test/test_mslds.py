@@ -9,6 +9,9 @@ import matplotlib.pyplot as plt
 from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
 from mixtape.datasets.alanine_dipeptide import TARGET_DIRECTORY \
         as TARGET_DIRECTORY_ALANINE
+from mixtape.datasets.met_enkephalin import fetch_met_enkephalin
+from mixtape.datasets.met_enkephalin import TARGET_DIRECTORY \
+        as TARGET_DIRECTORY_MET
 from mixtape.datasets.base import get_data_home
 from os.path import join
 from sklearn.mixture.gmm import log_multivariate_normal_density
@@ -163,10 +166,60 @@ def test_doublewell():
         traceback.print_exc()
         pdb.post_mortem(tb)
 
+def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
+        trajs, out, g, sim_T):
+    states = []
+    for k in range(n_components):
+        states.append([])
+
+    # Presort the data into the metastable wells
+    for k in range(n_components):
+        print "Presorting component %d" % k
+        for i in range(len(trajs)):
+            print "\tIn trajectory %d" % i
+            traj = trajs[i]
+            Z = traj.xyz
+            Z = np.reshape(Z, (len(Z), n_features), order='F')
+            logprob = log_multivariate_normal_density(Z,
+                np.array(g.means_), np.array(g.vars_), 
+                covariance_type='diag')
+            assignments = np.argmax(logprob, axis=1)
+            s = traj[assignments == k]
+            states[k].append(s)
+
+    # Pick frame from original trajectories closest to current sample
+    gen_traj = None
+    for t in range(sim_T):
+        print "t = %d" % t
+        h = hidden_states[t]
+        best_dist = np.inf
+        best_frame = None
+        for i in range(len(trajs)):
+            if t > 0:
+                states[h][i].superpose(gen_traj, t-1)
+            Z = states[h][i].xyz
+            Z = np.reshape(Z, (len(Z), n_features), order='F')
+            cur_sample = sample_traj[t]
+            cur_sample = np.tile(cur_sample, (len(Z), 1))
+            diffs = Z - cur_sample
+            dists = np.sum(diffs**2, axis=1)
+            ind = np.argmin(dists)
+            dist = dists[ind]
+            if dist < best_dist:
+                best_dist = dist 
+                best_frame = states[h][i][ind]
+        if t == 0:
+            gen_traj = best_frame
+        else:
+            gen_traj = gen_traj.join(best_frame)
+    gen_traj.save('%s.xtc' % out)
+    gen_traj[0].save('%s.xtc.pdb' % out)
+
 def test_alanine_dipeptide():
     import pdb, traceback, sys
     warnings.filterwarnings("ignore", 
                     category=DeprecationWarning)
+    LEARN = True
     try:
         b = fetch_alanine_dipeptide()
         trajs = b.trajectories
@@ -174,11 +227,13 @@ def test_alanine_dipeptide():
         n_frames = trajs[0].n_frames
         n_atoms = trajs[0].n_atoms
         n_features = n_atoms * 3
-        sim_T = 1000
+        n_components = 2
+        sim_T = 100
+        out = "alanine_test"
+
         data_home = get_data_home()
         data_dir = join(data_home, TARGET_DIRECTORY_ALANINE)
         top = md.load(join(data_dir, 'ala2.pdb'))
-        n_components = 2
         # Superpose m
         data = []
         for traj in trajs:
@@ -189,14 +244,21 @@ def test_alanine_dipeptide():
 
         # Fit MSLDS model 
         n_experiments = 1
-        n_em_iter = 1
-        tol = 1e-1
-        model = MetastableSwitchingLDS(n_components, 
-            n_features, n_experiments=n_experiments, 
-            n_em_iter=n_em_iter) 
-        model.fit(data, gamma=.1, tol=tol, verbose=True)
-        mslds_score = model.score(data)
-        print("MSLDS Log-Likelihood = %f" %  mslds_score)
+        n_em_iter = 3
+        tol = 2e-1
+        if LEARN:
+            model = MetastableSwitchingLDS(n_components, 
+                n_features, n_experiments=n_experiments, 
+                n_em_iter=n_em_iter) 
+            model.fit(data, gamma=1., tol=tol, verbose=False)
+            mslds_score = model.score(data)
+            print("MSLDS Log-Likelihood = %f" %  mslds_score)
+
+            # Generate a trajectory from learned model.
+            sample_traj, hidden_states = model.sample(sim_T)
+        else:
+            sample_traj = np.random.rand(sim_T, n_features)
+            hidden_states = np.random.randint(n_components, size=(sim_T,))
 
         # Fit Gaussian HMM for comparison
         g = GaussianFusionHMM(n_components, n_features)
@@ -205,52 +267,71 @@ def test_alanine_dipeptide():
         print("HMM Log-Likelihood = %f" %  hmm_score)
         print
 
-        # Generate a trajectory from learned model.
-        sample_traj, hidden_states = model.sample(sim_T)
-        states = []
-        for k in range(n_components):
-            states.append([])
+        gen_trajectory(sample_traj, hidden_states, n_components, 
+                        n_features, trajs, out, g, sim_T)
 
-        # Presort the data into the metastable wells
-        for k in range(n_components):
-            for i in range(len(trajs)):
-                traj = trajs[i]
-                Z = traj.xyz
-                Z = np.reshape(Z, (len(Z), n_features), order='F')
-                logprob = log_multivariate_normal_density(Z,
-                    np.array(model.means_),
-                    np.array(model.covars_), covariance_type='full')
-                assignments = np.argmax(logprob, axis=1)
-                #probs = np.max(logprob, axis=1)
-                # pick structures that have highest log probability in state
-                s = traj[assignments == k]
-                states[k].append(s)
+    except:
+        type, value, tb = sys.exc_info()
+        traceback.print_exc()
+        pdb.post_mortem(tb)
 
-        # Pick frame from original trajectories closest to current sample
-        gen_traj = None
-        for t in range(sim_T):
-            h = hidden_states[t]
-            best_logprob = -np.inf
-            best_frame = None
-            for i in range(len(trajs)):
-                if t > 0:
-                    states[h][i].superpose(gen_traj, t-1)
-                Z = states[h][i].xyz
-                Z = np.reshape(Z, (len(Z), n_features), order='F')
-                mean = sample_traj[t]
-                logprobs = log_multivariate_normal_density(Z,
-                    mean, model.Qs_[h], covariance_type='full')
-                ind = np.argmax(logprobs, axis=0)
-                logprob = logprobs[ind]
-                if logprob > best_log_prob:
-                    logprob = best_logprob
-                    best_frame = states[h][i][ind]
-            if t == 0:
-                gen_traj = best_frame
-            else:
-                gen_traj = gen_traj.join(frame)
-        gen_traj.save('%s.xtc' % self.out)
-        gen_traj[0].save('%s.xtc.pdb' % self.out)
+def test_met_enkephalin():
+    import pdb, traceback, sys
+    warnings.filterwarnings("ignore", 
+                    category=DeprecationWarning)
+    LEARN = True
+    try:
+        print "About to fetch trajectories"
+        b = fetch_met_enkephalin()
+        trajs = b.trajectories
+        n_seq = len(trajs)
+        n_frames = trajs[0].n_frames
+        n_atoms = trajs[0].n_atoms
+        n_features = n_atoms * 3
+        n_components = 2
+        sim_T = 100
+        out = "met_enk_test"
+
+        data_home = get_data_home()
+        data_dir = join(data_home, TARGET_DIRECTORY_MET)
+        top = md.load(join(data_dir, '1plx.pdb'))
+        # Superpose m
+        data = []
+        for traj in trajs:
+            "Superposing Trajectory"
+            traj.superpose(top)
+            Z = traj.xyz
+            Z = np.reshape(Z, (len(Z), n_features), order='F')
+            data.append(Z)
+
+        # Fit MSLDS model 
+        n_experiments = 1
+        n_em_iter = 3
+        tol = 2e-1
+        if LEARN:
+            model = MetastableSwitchingLDS(n_components, 
+                n_features, n_experiments=n_experiments, 
+                n_em_iter=n_em_iter) 
+            model.fit(data, gamma=1., tol=tol, verbose=False)
+            mslds_score = model.score(data)
+            print("MSLDS Log-Likelihood = %f" %  mslds_score)
+
+            # Generate a trajectory from learned model.
+            sample_traj, hidden_states = model.sample(sim_T)
+        else:
+            sample_traj = np.random.rand(sim_T, n_features)
+            hidden_states = np.random.randint(n_components, size=(sim_T,))
+
+        # Fit Gaussian HMM for comparison
+        g = GaussianFusionHMM(n_components, n_features)
+        g.fit(data)
+        hmm_score = g.score(data)
+        print("HMM Log-Likelihood = %f" %  hmm_score)
+        print
+
+        gen_trajectory(sample_traj, hidden_states, n_components, 
+                        n_features, trajs, out, g, sim_T)
+
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()
