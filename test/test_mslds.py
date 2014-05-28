@@ -260,6 +260,8 @@ def test_alanine_dipeptide():
             mslds_score = model.score(data)
             print("MSLDS Log-Likelihood = %f" %  mslds_score)
 
+            # Save the learned model
+            save_mslds_to_json_dict(model, 'alanine.json')
             # Generate a trajectory from learned model.
             sample_traj, hidden_states = model.sample(sim_T)
         else:

@@ -165,10 +165,30 @@ def compute_eigenspectra(self):
     return eigenspectra
 
 # TODO: FIX THIS!
-def load_from_json_dict(model, model_dict):
+
+def save_mslds_to_json_dict(model, outfile):
+    result = {
+        'model': 'MetastableSwitchingLinearDynamicalSystem',
+        'n_states': model.n_states,
+        'n_features': model.n_features,
+        'transmat': model.transmat_.tolist(),
+        'means': model.means_.tolist(),
+        'covars': model.covars_.tolist(),
+        'As': model.As_.tolist(),
+        'bs': model.bs_.tolist(),
+        'Qs': model.Qs_.tolist(),
+    }
+
+    if not np.all(np.isfinite(model.transmat_)):
+        raise ValueError('Nonfinite numbers in transmat!')
+
+    json.dump(result, outfile)
+    outfile.write('\n')
+
+def load_mslds_from_json_dict(model, model_dict):
     # Check that the num of states and features agrees
     n_features = float(model_dict['n_features'])
-    n_states = float(model_dict['n_states'])
+    n_components = float(model_dict['n_states'])
     if n_features != self.n_features or n_states != self.n_states:
         raise ValueError('Invalid number of states or features')
     # read array values from the json dictionary
@@ -190,9 +210,11 @@ def load_from_json_dict(model, model_dict):
     # Transmat
     transmat = np.array(model_dict['transmat'])
     # Create the MSLDS model
-    self.Qs_ = Qs
-    self.As_ = As
-    self.bs_ = bs
-    self.means_ = means
-    self.covars_ = covars
-    self.transmat_ = transmat
+    model = MetastableSwitchingLDS(n_components, n_features) 
+    model.Qs_ = Qs
+    model.As_ = As
+    model.bs_ = bs
+    model.means_ = means
+    model.covars_ = covars
+    model.transmat_ = transmat
+    return model
