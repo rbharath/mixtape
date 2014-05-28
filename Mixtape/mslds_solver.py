@@ -69,11 +69,13 @@ class MetastableSwitchingLDSSolver(object):
 
                 # Deal with numerical issues
                 # Might be slightly negative due to numerical issues
-                min_eig = min(np.linalg.eig(covar)[0])
+                min_eig = np.amin(np.linalg.eigh(covar)[0])
                 if min_eig < 0:
                     # Assume min_eig << 1
-                    covar += (2 * abs(min_eig) *
-                                        np.eye(self.n_features))
+                    covar_new = covar + (2 * abs(min_eig) *
+                                            np.eye(self.n_features))
+                    covar = covar_new
+                covar += (1e-5) * np.eye(self.n_features)
                 covars.append(covar)
             else:
                 covars.append(np.zeros(np.shape(obsmean)))
@@ -354,11 +356,11 @@ def A_solve(block_dim, B, C, D, E, Q, mu, interactive=False,
             X_init = None
             const = const * factor
         else:
-            print "A_SOLVE SUCCESS AT %d" % i
+            print "A_INIT SUCCESS AT %d" % i
             print "const: ", const
             break
     if X_init == None:
-        print "A_SOLVE INIT FAILED!"
+        print "A_INIT FAILED!"
 
 
     def obj(X):
@@ -380,6 +382,8 @@ def A_solve(block_dim, B, C, D, E, Q, mu, interactive=False,
         A = (A_1 + A_T_1 + A_2 + A_T_2) / 4.
         if disp:
             print "A:\n", A
+        import pdb
+        pdb.set_trace()
         return A
 
 def Q_solve(block_dim, A, D, F, interactive=False, disp=True,
@@ -448,10 +452,10 @@ def Q_solve(block_dim, A, D, F, interactive=False, disp=True,
     set_entries(X_init, R_2_cds, Qinv_init_2)
     X_init = X_init + (1e-4)*np.eye(dim)
     if min(np.linalg.eigh(X_init)[0]) < 0:
-        print "Q_SOLVE INIT FAILED!"
+        print "Q_INIT FAILED!"
         X_init == None
     else:
-        print "Q_SOLVE SUCCESS!"
+        print "Q_INIT SUCCESS!"
 
     g = GeneralSolver()
     def obj(X):
@@ -475,4 +479,6 @@ def Q_solve(block_dim, A, D, F, interactive=False, disp=True,
         Q *= (1./scale)
         if disp:
             print "Q:\n", Q
+        import pdb
+        pdb.set_trace()
         return Q
