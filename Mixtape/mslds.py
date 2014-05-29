@@ -224,7 +224,7 @@ class MetastableSwitchingLDS(object):
             self.Qs_[i] = Q
         As = []
         for i in range(self.n_states):
-            A = np.eye(self.n_features)
+            A = .9 * np.eye(self.n_features)
             As.append(A)
         self.As_ = As
         bs = []
