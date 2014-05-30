@@ -1,72 +1,53 @@
-# Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
-def A_dynamics(X, dim, C, B, E, Qinv):
-    """
-    min Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
+class A_problem(object):
 
-          --------------------
-         | D-Q    A           |
-    X =  | A.T  D^{-1}        |
-         |              I   A |
-         |             A.T  I |
-          --------------------
-    X is PSD
-    """
-    (D_Q_cds, Dinv_cds, I_1_cds, I_2_cds,
-        A_1_cds, A_T_1_cds, A_2_cds, A_T_2_cds) = A_coords(dim)
+    def __init__(self, dim):
+        self.dim = dim
 
-    A_1 = get_entries(X, A_1_cds)
-    A_T_1 = get_entries(X, A_T_1_cds)
-    A_2 = get_entries(X, A_2_cds)
-    A_T_2 = get_entries(X, A_T_2_cds)
-    def obj(A):
-        return np.dot(Qinv, (np.dot(C-B, A.T) + np.dot(C-B, A.T).T
+    # Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
+    def A_dynamics(self, X, C, B, E, Qinv):
+        """
+        min Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
+
+              ------------
+             | D-Q    A   |
+        X =  | A.T  D^{-1}|
+              ------------
+        X is PSD
+        """
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.A_coords()
+
+        A = get_entries(X, A_1_cds)
+        term = np.dot(Qinv, (np.dot(C-B, A.T) + np.dot(C-B, A.T).T
                             + np.dot(A, np.dot(E, A.T))))
-    term_1, term_T_1, term_2, term_T_2 = \
-            obj(A_1), obj(A_T_1.T), obj(A_2), obj(A_T_2)
-    return np.trace(term_1+term_T_1+term_2+term_T_2)
+        return np.trace(term)
 
-# grad Tr [Q^{-1} (C - B) A.T] = Q^{-1} (C - B)
-# grad Tr [Q^{-1} A [C - B].T] = Q^{-T} (C - B)
-# grad Tr [Q^{-1} A E A.T] = Q^{-T} A E.T + Q^{-1} A E
-def grad_A_dynamics(X, dim, C, B, E, Qinv):
-    """
-    min Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
+    # grad Tr [Q^{-1} (C - B) A.T] = Q^{-1} (C - B)
+    # grad Tr [Q^{-1} A [C - B].T] = Q^{-T} (C - B)
+    # grad Tr [Q^{-1} A E A.T] = Q^{-T} A E.T + Q^{-1} A E
+    def grad_A_dynamics(self, X, C, B, E, Qinv):
+        """
+        min Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
 
-          --------------------
-         | D-Q    A           |
-    X =  | A.T  D^{-1}        |
-         |              I   A |
-         |             A.T  I |
-          --------------------
-    X is PSD
-    """
-    (D_Q_cds, Dinv_cds, I_1_cds, I_2_cds,
-        A_1_cds, A_T_1_cds, A_2_cds, A_T_2_cds) = A_coords(dim)
-    grad = np.zeros(np.shape(X))
-    A_1 = get_entries(X, A_1_cds)
-    A_T_1 = get_entries(X, A_T_1_cds)
-    A_2 = get_entries(X, A_2_cds)
-    A_T_2 = get_entries(X, A_T_2_cds)
-    def grad_obj(A):
+              ------------
+             | D-Q    A   |
+        X =  | A.T  D^{-1}|
+              ------------
+        X is PSD
+        """
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = A_coords(dim)
+        grad = np.zeros(np.shape(X))
+        A = get_entries(X, A_cds)
+
         grad_term1 = np.dot(Qinv, C-B)
         grad_term2 = np.dot(Qinv.T, C-B)
         grad_term3 = np.dot(Qinv.T, np.dot(A, E.T)) + \
                         np.dot(Qinv, np.dot(A, E))
         gradA = grad_term1 + grad_term2 + grad_term3
-        return gradA
-    gradA_1, gradA_T_1, gradA_2, gradA_T_2 = \
-            (grad_obj(A_1), grad_obj(A_T_1.T),
-                grad_obj(A_2), grad_obj(A_T_2.T))
-    set_entries(grad, A_1_cds, gradA_1)
-    set_entries(grad, A_T_1_cds, gradA_T_1.T)
-    set_entries(grad, A_2_cds, gradA_2)
-    set_entries(grad, A_T_2_cds, gradA_T_2.T)
-    return grad
 
-class A_problem(object):
+        set_entries(grad, A_cds, gradA)
+        set_entries(grad, A_T_cds, gradA.T)
+        return grad
 
-    def __init__(self, dim):
-        self.dim = dim
 
     def A_coords(self):
         dim = self.dim
@@ -86,17 +67,17 @@ class A_problem(object):
          | A.T    _ |
           ----------
         """
-        A_1_cds = (0, dim, dim, 2*dim)
-        A_T_1_cds = (dim, 2*dim, 0, dim)
+        A_cds = (0, dim, dim, 2*dim)
+        A_T_cds = (dim, 2*dim, 0, dim)
 
-        return (D_Q_cds, Dinv_cds, A_1_cds, A_T_1_cds)
+        return (D_Q_cds, Dinv_cds, A_cds, A_T_cds)
 
     def generate_A_constraints(self, D, Dinv, Q):
 
         As, bs, Cs, ds, = [], [], [], []
         Fs, gradFs, Gs, gradGs = [], [], [], []
 
-        (D_Q_cds, Dinv_cds, A_1_cds, A_T_1_cds) = A_coords(self.dim)
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = A_coords(self.dim)
 
         constraints = []
 
@@ -120,8 +101,8 @@ class A_problem(object):
 
         return As, bs, Cs, ds, Fs, gradFs, Gs, gradGs
 
-    def A_solve(self, block_dim, B, C, D, E, Q, mu, interactive=False,
-            disp=True, verbose=False, debug=False, Rs=[10, 100, 1000],
+    def A_solve(self, B, C, D, E, Q, mu, interactive=False,
+            disp=True, verbose=False, debug=False,
             N_iter=400, tol=1e-1, min_step_size=1e-6,
             methods=['frank_wolfe']):
         """
@@ -133,10 +114,9 @@ class A_problem(object):
              | D-Q    A    |
         X =  | A.T  D^{-1} |
               -------------
-        A mu == 0
         X is PSD
         """
-        dim = 4*block_dim
+        dim = 4 * self.dim
         search_tol = 1.
 
         # Copy in inputs 
@@ -145,13 +125,12 @@ class A_problem(object):
         D = np.copy(D)
         E = np.copy(E)
         Q = np.copy(Q)
-        mu = np.copy(mu)
 
         # Scale down objective matrices 
         scale_factor = (max(np.linalg.norm(C-B, 2), np.linalg.norm(E,2)))
         if scale_factor < 1e-6 or np.linalg.norm(D, 2) < 1e-6:
             # If A has no observations, not much we can say
-            return .5*np.eye(block_dim)
+            return .5*np.eye(self.dim)
 
         C = C/scale_factor
         B = B/scale_factor
@@ -165,9 +144,9 @@ class A_problem(object):
         Q *= scale
 
         # Improving conditioning
-        delta=1e-2
-        D = D + delta*np.eye(block_dim)
-        Q = Q + delta*np.eye(block_dim)
+        delta = 1e-2
+        D = D + delta*np.eye(self.dim)
+        Q = Q + delta*np.eye(self.dim)
         Dinv = np.linalg.inv(D)
 
         # Compute post-scaled inverses
@@ -175,13 +154,12 @@ class A_problem(object):
         Qinv = np.linalg.inv(Q)
 
         # Compute trace upper bound
-        R = np.abs(np.trace(D)) + np.abs(np.trace(Dinv)) + 2 * block_dim
+        R = np.abs(np.trace(D)) + np.abs(np.trace(Dinv)) + 2*self.dim 
         Rs = [R]
 
         As, bs, Cs, ds, Fs, gradFs, Gs, gradGs = \
-                A_constraints(block_dim, D, Dinv, Q, mu)
-        (D_Q_cds, Dinv_cds, I_1_cds, I_2_cds,
-            A_1_cds, A_T_1_cds, A_2_cds, A_T_2_cds) = A_coords(block_dim)
+                self.A_constraints(D, Dinv, Q)
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.A_coords()
 
         # Construct init matrix
         upper_norm = np.linalg.norm(D-Q, 2)
@@ -191,13 +169,9 @@ class A_problem(object):
         for i in range(10):
             X_init = np.zeros((dim, dim))
             set_entries(X_init, D_Q_cds, D-Q)
-            set_entries(X_init, A_1_cds, const*np.eye(block_dim))
-            set_entries(X_init, A_T_1_cds, const*np.eye(block_dim))
+            set_entries(X_init, A_cds, const*np.eye(self.dim))
+            set_entries(X_init, A_T_cds, const*np.eye(self.dim))
             set_entries(X_init, Dinv_cds, Dinv)
-            set_entries(X_init, I_1_cds, np.eye(block_dim))
-            set_entries(X_init, A_2_cds, const*np.eye(block_dim))
-            set_entries(X_init, A_T_2_cds, const*np.eye(block_dim))
-            set_entries(X_init, I_2_cds, np.eye(block_dim))
             X_init = X_init + (1e-1)*np.eye(dim)
             if min(np.linalg.eigh(X_init)[0]) < 0:
                 X_init = None
@@ -209,11 +183,11 @@ class A_problem(object):
         if X_init == None:
             print "A_INIT FAILED!"
 
-
         def obj(X):
-            return A_dynamics(X, block_dim, C, B, E, Qinv)
+            return self.A_dynamics(X, block_dim, C, B, E, Qinv)
         def grad_obj(X):
-            return grad_A_dynamics(X, block_dim, C, B, E, Qinv)
+            return self.grad_A_dynamics(X, block_dim, C, B, E, Qinv)
+
         g = GeneralSolver()
         g.save_constraints(dim, obj, grad_obj, As, bs, Cs, ds,
                 Fs, gradFs, Gs, gradGs)
@@ -222,15 +196,9 @@ class A_problem(object):
                 debug=debug, Rs=Rs, min_step_size=min_step_size,
                 methods=methods, X_init=X_init)
         if succeed:
-            A_1 = get_entries(X, A_1_cds)
-            A_T_1 = get_entries(X, A_T_1_cds)
-            A_2 = get_entries(X, A_2_cds)
-            A_T_2 = get_entries(X, A_T_2_cds)
-            A = (A_1 + A_T_1 + A_2 + A_T_2) / 4.
+            A = get_entries(X, A_cds)
             if disp:
                 print "A:\n", A
-            import pdb
-            pdb.set_trace()
             return A
 
     def print_A_test_case(test_file, B, C, D, E, Q, mu, dim):
