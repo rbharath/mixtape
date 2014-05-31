@@ -1,85 +1,83 @@
 import numpy as np
-
-# - log det R + Tr(RB)
-def log_det_tr(X, B):
-    """
-    minimize -log det R + Tr(RB)
-          -------------------
-         |D-ADA.T  I         |
-    X =  |   I     R         |
-         |            D   cI |
-         |           cI   R  |
-          -------------------
-    X is PSD
-    """
-    np.seterr(divide='raise')
-    (dim, _) = np.shape(X)
-    block_dim = int(dim/4)
-    (D_ADA_T_cds, I_1_cds, I_2_cds, R_1_cds, 
-        D_cds, c_I_1_cds, c_I_2_cds, R_2_cds) = \
-            Q_coords(block_dim)
-    R1 = get_entries(X, R_1_cds)
-    R2 = get_entries(X, R_2_cds)
-    # Need to avoid ill-conditioning of R1, R2
-    R1 = R1 + (1e-5) * np.eye(block_dim)
-    R2 = R2 + (1e-5) * np.eye(block_dim)
-    try:
-        #val1 = -np.log(np.linalg.det(R1)) + np.trace(np.dot(R1, B))
-        L1 = np.linalg.cholesky(R1)
-        log_det1 = 2*np.sum(np.log(np.diag(L1)))
-        val1 = -log_det1 + np.trace(np.dot(R1, B))
-    except FloatingPointError:
-        if ((np.linalg.det(R1) < np.finfo(np.float).eps)
-            or not np.isfinite(np.linalg.det(R1))):
-            val1 = np.inf
-    try:
-        #val2 = -np.log(np.linalg.det(R2)) + np.trace(np.dot(R2, B))
-        L2 = np.linalg.cholesky(R2)
-        log_det2 = 2*np.sum(np.log(np.diag(L2)))
-        val2 = -log_det2 + np.trace(np.dot(R2, B))
-    except FloatingPointError:
-        if ((np.linalg.det(R2) < np.finfo(np.float).eps)
-            or not np.isfinite(np.linalg.det(R2))):
-            val2 = np.inf
-    val = val1 + val2 
-    return val 
-
-# grad - log det R = -R^{-1} = -Q (see Boyd and Vandenberge, A4.1)
-# grad tr(RB) = B^T
-def grad_log_det_tr(X, B):
-    """
-    minimize -log det R + Tr(RB)
-          -------------------
-         |D-ADA.T  I         |
-    X =  |   I     R         |
-         |            D   cI |
-         |           cI   R  |
-          -------------------
-    X is PSD
-    """
-    (dim, _) = np.shape(X)
-    block_dim = int(dim/4)
-    (D_ADA_T_cds, I_1_cds, I_2_cds, R_1_cds, 
-        D_cds, c_I_1_cds, c_I_2_cds, R_2_cds) = \
-            Q_coords(block_dim)
-    grad = np.zeros(np.shape(X))
-    R1 = get_entries(X, R_1_cds)
-    R2 = get_entries(X, R_2_cds)
-    # Need to avoid ill-conditioning of R1, R2
-    R1 = R1 + (1e-5) * np.eye(block_dim)
-    R2 = R2 + (1e-5) * np.eye(block_dim)
-    Q1 = np.linalg.inv(R1)
-    Q2 = np.linalg.inv(R2)
-    gradR1 = -Q1.T + B.T
-    gradR2 = -Q2.T + B.T
-    set_entries(grad, R_1_cds, gradR1)
-    set_entries(grad, R_2_cds, gradR2)
-    return grad
+from mixtape.utils import print_solve_test_case
 
 class Q_problem(object):
 
     def __init__(self):
         pass
+
+    # - log det R + Tr(RB)
+    def log_det_tr(self, X, B):
+        """
+        minimize -log det R + Tr(RB)
+              -----------
+             |D-ADA.T  I |
+        X =  |   I     R |
+              -----------
+        X is PSD
+        """
+        np.seterr(divide='raise')
+        (dim, _) = np.shape(X)
+        block_dim = int(dim/4)
+        (D_ADA_T_cds, I_1_cds, I_2_cds, R_1_cds, 
+            D_cds, c_I_1_cds, c_I_2_cds, R_2_cds) = \
+                Q_coords(block_dim)
+        R1 = get_entries(X, R_1_cds)
+        R2 = get_entries(X, R_2_cds)
+        # Need to avoid ill-conditioning of R1, R2
+        R1 = R1 + (1e-5) * np.eye(block_dim)
+        R2 = R2 + (1e-5) * np.eye(block_dim)
+        try:
+            #val1 = -np.log(np.linalg.det(R1)) + np.trace(np.dot(R1, B))
+            L1 = np.linalg.cholesky(R1)
+            log_det1 = 2*np.sum(np.log(np.diag(L1)))
+            val1 = -log_det1 + np.trace(np.dot(R1, B))
+        except FloatingPointError:
+            if ((np.linalg.det(R1) < np.finfo(np.float).eps)
+                or not np.isfinite(np.linalg.det(R1))):
+                val1 = np.inf
+        try:
+            #val2 = -np.log(np.linalg.det(R2)) + np.trace(np.dot(R2, B))
+            L2 = np.linalg.cholesky(R2)
+            log_det2 = 2*np.sum(np.log(np.diag(L2)))
+            val2 = -log_det2 + np.trace(np.dot(R2, B))
+        except FloatingPointError:
+            if ((np.linalg.det(R2) < np.finfo(np.float).eps)
+                or not np.isfinite(np.linalg.det(R2))):
+                val2 = np.inf
+        val = val1 + val2 
+        return val 
+
+    # grad - log det R = -R^{-1} = -Q (see Boyd and Vandenberge, A4.1)
+    # grad tr(RB) = B^T
+    def grad_log_det_tr(self, X, B):
+        """
+        minimize -log det R + Tr(RB)
+              -------------------
+             |D-ADA.T  I         |
+        X =  |   I     R         |
+              -------------------
+        X is PSD
+        """
+        (dim, _) = np.shape(X)
+        block_dim = int(dim/4)
+        (D_ADA_T_cds, I_1_cds, I_2_cds, R_1_cds, 
+            D_cds, c_I_1_cds, c_I_2_cds, R_2_cds) = \
+                Q_coords(block_dim)
+        grad = np.zeros(np.shape(X))
+        R1 = get_entries(X, R_1_cds)
+        R2 = get_entries(X, R_2_cds)
+        # Need to avoid ill-conditioning of R1, R2
+        R1 = R1 + (1e-5) * np.eye(block_dim)
+        R2 = R2 + (1e-5) * np.eye(block_dim)
+        Q1 = np.linalg.inv(R1)
+        Q2 = np.linalg.inv(R2)
+        gradR1 = -Q1.T + B.T
+        gradR2 = -Q2.T + B.T
+        set_entries(grad, R_1_cds, gradR1)
+        set_entries(grad, R_2_cds, gradR2)
+        return grad
+
 
     def Q_coords(self, dim):
         """
@@ -279,29 +277,5 @@ class Q_problem(object):
             return Q
 
     def print_Q_test_case(test_file, A, D, F, dim):
-        display_string = "Q-solve failed. Autogenerating Q test case"
-        display_string = (bcolors.FAIL + display_string
-                            + bcolors.ENDC)
-        print display_string
-        np.set_printoptions(threshold=np.nan)
-        with open(test_file, 'w') as f:
-            test_string = ""
-            test_string += "\ndef Q_solve_test():\n"
-            test_string += "\t#Auto-generated test case from failing run of\n"
-            test_string += "\t#Q-solve:\n"
-            test_string += "\timport numpy as np\n"
-            test_string += "\timport pickle\n"
-            test_string += "\tfrom mixtape.mslds_solver import AQb_solve,"\
-                                + " A_solve, Q_solve\n"
-            test_string += "\tblock_dim = %d\n"%dim
-            pickle.dump(A, open("A_Q_test.p", "w"))
-            test_string += '\tA = pickle.load(open("A_Q_test.p", "r"))\n'
-            pickle.dump(D, open("D_Q_test.p", "w"))
-            test_string += '\tD = pickle.load(open("D_Q_test.p", "r"))\n'
-            pickle.dump(F, open("F_Q_test.p", "w"))
-            test_string += '\tF = pickle.load(open("F_Q_test.p", "r"))\n'
-            test_string += "\tQ_solve(block_dim, A, D, F, \n"
-            test_string += "\t\tdisp=True, debug=False, verbose=False,\n"
-            test_string += "\t\tRs=[100])\n"
-            f.write(test_string)
-        np.set_printoptions(threshold=1000)
+        matrices = [(A, "A"), (D, "D"), (F, "F")]
+        print_solve_test_case("Q", matrices, self.dim, test_file)

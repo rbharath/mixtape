@@ -1,3 +1,6 @@
+import numpy as np
+from mixtape.utils import print_solve_test_case
+
 class A_problem(object):
 
     def __init__(self, dim):
@@ -201,37 +204,6 @@ class A_problem(object):
                 print "A:\n", A
             return A
 
-    def print_A_test_case(test_file, B, C, D, E, Q, mu, dim):
-        display_string = "A-solve failed. Autogenerating A test case"
-        display_string = (bcolors.FAIL + display_string
-                            + bcolors.ENDC)
-        print display_string
-        with open(test_file, 'w') as f:
-            test_string = ""
-            np.set_printoptions(threshold=np.nan)
-            test_string += "\ndef A_solve_test():\n"
-            test_string += "\t#Auto-generated test case from failing run of\n"
-            test_string += "\t#A-solve:\n"
-            test_string += "\timport numpy as np\n"
-            test_string += "\timport pickle\n"
-            test_string += "\tfrom mixtape.mslds_solver import AQb_solve,"\
-                                + " A_solve, Q_solve\n"
-            test_string += "\tblock_dim = %d\n"%dim
-            pickle.dump(B, open("B_A_test.p", "w"))
-            test_string += '\tB = pickle.load(open("B_A_test.p", "r"))\n'
-            pickle.dump(C, open("C_A_test.p", "w"))
-            test_string += '\tC = pickle.load(open("C_A_test.p", "r"))\n'
-            pickle.dump(D, open("D_A_test.p", "w"))
-            test_string += '\tD = pickle.load(open("D_A_test.p", "r"))\n'
-            pickle.dump(E, open("E_A_test.p", "w"))
-            test_string += '\tE = pickle.load(open("E_A_test.p", "r"))\n'
-            pickle.dump(Q, open("Q_A_test.p", "w"))
-            test_string += '\tQ = pickle.load(open("Q_A_test.p", "r"))\n'
-            pickle.dump(mu, open("mu_A_test.p", "w"))
-            test_string += '\tmu = pickle.load(open("mu_A_test.p", "r"))\n'
-            test_string += "\tA_solve(block_dim, B, C, D, E, Q, mu,\n"
-            test_string += "\t\tdisp=True, debug=False, verbose=False,\n"
-            test_string += "\t\tRs=[100])\n"
-            f.write(test_string)
-        np.set_printoptions(threshold=1000)
-
+    def print_A_test_case(self, test_file, B, C, D, E, Q):
+        matrices = [(B, "B"), (C, "C"), (D, "D"), (E, "E"), (Q, "Q")]
+        print_solve_test_case("A", matrices, self.dim, test_file)

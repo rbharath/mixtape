@@ -103,68 +103,34 @@ def iter_vars(A, Q, N):
         V = Q + np.dot(A, np.dot(V, A.T))
     return V
 
-##########################################################################
-# END of MSLDS Utils (experimental)
-##########################################################################
 
-def map_drawn_samples(selected_pairs_by_state, trajectories):
-    """Lookup trajectory frames using pairs of (trajectory, frame) indices.
+def print_solve_test_case(name, matrices, dim, test_file):
+    disp = "%s_solve failed. " % name
+    disp += "Autogenerating %s test case" % name
+    disp = (bcolors.FAIL + disp + bcolors.ENDC)
+    print disp
+    with open(test_file, 'w') as f:
+        disp  = ""
+        np.set_printoptions(threshold=np.nan)
+        disp += "\ndef %s_test():\n" % name
+        disp += "\t#Auto-generated test case from failing run of\n"
+        disp += "\t#%name-solve:\n"
+        disp += "\timport numpy as np\n"
+        disp += "\timport pickle\n"
+        disp += "\tfrom mixtape.mslds_solver import AQb_solve,"\
+                            + " A_solve, Q_solve\n"
+        test_string += "\tblock_dim = %d\n"%dim
+        arg_string = ""
+        for mat, mat_name in matrices:
+            pickle.dump(mat, open("%s_%s_test.p" % (mat_name, name), "w"))
+            test_string += ('\t%s = pickle.load(open("%s_%s_test.p", "r"))\n'
+                            % mat_name, mat_name, name)
+            arg_string += mat_name + ", "
+        test_string += "\t%s_solve(block_dim, %s\n" % name, arg_string
+        test_string += "\t\tdisp=True, debug=False, verbose=False)\n"
+        f.write(test_string)
+    np.set_printoptions(threshold=1000)
 
-    Parameters
-    ----------
-    selected_pairs_by_state : np.ndarray, dtype=int, shape=(n_states, n_samples, 2)
-        selected_pairs_by_state[state, sample] gives the (trajectory, frame)
-        index associated with a particular sample from that state.
-    trajectories : list(md.Trajectory)
-        The trajectories assocated with sequences,
-        which will be used to extract coordinates of the state centers
-        from the raw trajectory data
-
-    Returns
-    -------
-    frames_by_state : mdtraj.Trajectory, optional
-        If `trajectories` are provided, this output will be a list
-        of trajectories such that frames_by_state[state] is a trajectory
-        drawn from `state` of length `n_samples`
-    
-    Examples
-    --------
-    >>> selected_pairs_by_state = hmm.draw_samples(sequences, 3)
-    >>> samples = map_drawn_samples(selected_pairs_by_state, trajectories)
-    
-    Notes
-    -----
-    YOU are responsible for ensuring that selected_pairs_by_state and 
-    trajectories correspond to the same dataset!
-    
-    See Also
-    --------
-    utils.map_drawn_samples : Extract conformations from MD trajectories by index.
-    ghmm.GaussianFusionHMM.draw_samples : Draw samples from GHMM    
-    ghmm.GaussianFusionHMM.draw_centroids : Draw centroids from GHMM    
-    """
-
-    frames_by_state = []
-
-    for state, pairs in enumerate(selected_pairs_by_state):
-        frames = [trajectories[trj][frame] for trj, frame in pairs]
-        state_trj = np.sum(frames)  # No idea why numpy is necessary, but it is
-        frames_by_state.append(state_trj)
-    
-    return frames_by_state
-
-# TODO: FIX THIS!
-def compute_eigenspectra(self):
-    """
-    Compute the eigenspectra of operators A_i
-    """
-    eigenspectra = np.zeros((self.n_states,
-                            self.n_features, self.n_features))
-    for k in range(self.n_states):
-        eigenspectra[k] = np.diag(np.linalg.eigvals(self.As_[k]))
-    return eigenspectra
-
-# TODO: FIX THIS!
 
 def save_mslds_to_json_dict(model, outfile):
     result = {
@@ -218,3 +184,54 @@ def load_mslds_from_json_dict(model, model_dict):
     model.covars_ = covars
     model.transmat_ = transmat
     return model
+
+##########################################################################
+# END of MSLDS Utils (experimental)
+##########################################################################
+
+def map_drawn_samples(selected_pairs_by_state, trajectories):
+    """Lookup trajectory frames using pairs of (trajectory, frame) indices.
+
+    Parameters
+    ----------
+    selected_pairs_by_state : np.ndarray, dtype=int, shape=(n_states, n_samples, 2)
+        selected_pairs_by_state[state, sample] gives the (trajectory, frame)
+        index associated with a particular sample from that state.
+    trajectories : list(md.Trajectory)
+        The trajectories assocated with sequences,
+        which will be used to extract coordinates of the state centers
+        from the raw trajectory data
+
+    Returns
+    -------
+    frames_by_state : mdtraj.Trajectory, optional
+        If `trajectories` are provided, this output will be a list
+        of trajectories such that frames_by_state[state] is a trajectory
+        drawn from `state` of length `n_samples`
+    
+    Examples
+    --------
+    >>> selected_pairs_by_state = hmm.draw_samples(sequences, 3)
+    >>> samples = map_drawn_samples(selected_pairs_by_state, trajectories)
+    
+    Notes
+    -----
+    YOU are responsible for ensuring that selected_pairs_by_state and 
+    trajectories correspond to the same dataset!
+    
+    See Also
+    --------
+    utils.map_drawn_samples : Extract conformations from MD trajectories by index.
+    ghmm.GaussianFusionHMM.draw_samples : Draw samples from GHMM    
+    ghmm.GaussianFusionHMM.draw_centroids : Draw centroids from GHMM    
+    """
+
+    frames_by_state = []
+
+    for state, pairs in enumerate(selected_pairs_by_state):
+        frames = [trajectories[trj][frame] for trj, frame in pairs]
+        state_trj = np.sum(frames)  # No idea why numpy is necessary, but it is
+        frames_by_state.append(state_trj)
+    
+    return frames_by_state
+
