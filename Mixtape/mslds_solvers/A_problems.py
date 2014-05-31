@@ -187,9 +187,9 @@ class A_problem(object):
             print "A_INIT FAILED!"
 
         def obj(X):
-            return self.A_dynamics(X, block_dim, C, B, E, Qinv)
+            return self.A_dynamics(X, C, B, E, Qinv)
         def grad_obj(X):
-            return self.grad_A_dynamics(X, block_dim, C, B, E, Qinv)
+            return self.grad_A_dynamics(X, C, B, E, Qinv)
 
         g = GeneralSolver()
         g.save_constraints(dim, obj, grad_obj, As, bs, Cs, ds,
