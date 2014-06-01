@@ -15,7 +15,6 @@ from mixtape.datasets.met_enkephalin import TARGET_DIRECTORY \
 from mixtape.datasets.src_kinase import fetch_src_kinase
 from mixtape.datasets.src_kinase import TARGET_DIRECTORY \
         as TARGET_DIRECTORY_SRC
-from mixtape.datasets.nanoreactor import fetch_nanoreactor_molecules
 from mixtape.datasets.src_kinase import TARGET_DIRECTORY \
         as TARGET_DIRECTORY_NANO
 from mixtape.datasets.base import get_data_home
@@ -408,23 +407,6 @@ def test_src_kinase():
         gen_trajectory(sample_traj, hidden_states, n_components, 
                         n_features, trajs, out, g, sim_T)
 
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
-
-def test_nanoreactor():
-    import pdb, traceback, sys
-    warnings.filterwarnings("ignore", 
-                    category=DeprecationWarning)
-    LEARN = True
-    try:
-        m = fetch_nanoreactor_molecules()
-        data = m['xyzs']
-        (T, n_atoms, _) = np.shape(data)
-        #data = np.reshape(data, (T, n_atoms * 3), order 
-        import pdb
-        pdb.set_trace()
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()
