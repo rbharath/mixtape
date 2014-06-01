@@ -137,6 +137,7 @@ def test_alanine_dipeptide_mstep():
         n_frames = trajs[0].n_frames
         n_atoms = trajs[0].n_atoms
         n_features = n_atoms * 3
+        tol=2e-2
 
         data_home = get_data_home()
         data_dir = join(data_home, TARGET_DIRECTORY_ALANINE)
@@ -172,7 +173,8 @@ def test_alanine_dipeptide_mstep():
 
         # Test AQB solver for MSLDS
         solver = MetastableSwitchingLDSSolver(n_components, n_features)
-        solver.do_mstep(As, Qs, bs, means, covars, rstats, N_iter=100)
+        solver.do_mstep(As, Qs, bs, means, covars, rstats,
+                        verbose=True, tol=tol)
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()

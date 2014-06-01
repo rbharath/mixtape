@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import LinAlgError
 from mixtape.utils import print_solve_test_case
 from mixtape.mslds_solvers.sparse_sdp.utils import get_entries, set_entries
 from mixtape.mslds_solvers.sparse_sdp.constraints import many_batch_equals
@@ -26,16 +27,12 @@ class Q_problem(object):
         np.seterr(divide='raise')
         (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = self.coords()
         R = get_entries(X, R_cds)
-        # Need to avoid ill-conditioning of R
-        R = R + (1e-5) * np.eye(self.dim)
         try:
             L = np.linalg.cholesky(R)
             log_det = 2*np.sum(np.log(np.diag(L)))
             val = -log_det + np.trace(np.dot(R, B))
-        except FloatingPointError:
-            if ((np.linalg.det(R) < np.finfo(np.float).eps)
-                or not np.isfinite(np.linalg.det(R))):
-                val = np.inf
+        except (FloatingPointError, LinAlgError) as e:
+            val = np.inf
         return val 
 
     # grad - log det R = -R^{-1} = -Q (see Boyd and Vandenberge, A4.1)
@@ -205,6 +202,8 @@ class Q_problem(object):
             Q = np.linalg.inv(R)
             # Unscale answer
             Q *= (1./scale)
+            import pdb
+            pdb.set_trace()
             return Q
 
     def print_Q_test_case(test_file, A, D, F, dim):

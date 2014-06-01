@@ -27,6 +27,7 @@ import numpy as np
 from sklearn.utils import check_random_state
 from sklearn.externals.joblib import load, dump
 from numpy.linalg import norm
+import pickle
 
 #-----------------------------------------------------------------------------
 # Code
@@ -119,16 +120,16 @@ def print_solve_test_case(name, matrices, dim, test_file):
         disp += "\timport pickle\n"
         disp += "\tfrom mixtape.mslds_solver import AQb_solve,"\
                             + " A_solve, Q_solve\n"
-        test_string += "\tblock_dim = %d\n"%dim
+        disp += "\tblock_dim = %d\n"%dim
         arg_string = ""
         for mat, mat_name in matrices:
             pickle.dump(mat, open("%s_%s_test.p" % (mat_name, name), "w"))
             test_string += ('\t%s = pickle.load(open("%s_%s_test.p", "r"))\n'
                             % mat_name, mat_name, name)
             arg_string += mat_name + ", "
-        test_string += "\t%s_solve(block_dim, %s\n" % name, arg_string
-        test_string += "\t\tdisp=True, debug=False, verbose=False)\n"
-        f.write(test_string)
+        disp += "\t%s_solve(block_dim, %s\n" % name, arg_string
+        disp += "\t\tdisp=True, debug=False, verbose=False)\n"
+        f.write(disp)
     np.set_printoptions(threshold=1000)
 
 

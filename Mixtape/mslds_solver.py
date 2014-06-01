@@ -23,7 +23,7 @@ class MetastableSwitchingLDSSolver(object):
     def do_hmm_mstep(self, stats):
         print "Starting hmm mstep"
         print "Starting transmat update"
-        transmat = transmat_solve(stats)
+        transmat = self.transmat_solve(stats)
         print "Starting means update"
         means = self.means_update(stats)
         print "Starting covars update"
@@ -39,7 +39,7 @@ class MetastableSwitchingLDSSolver(object):
         As = np.copy(As)
         Qs = np.copy(Qs)
         bs = np.copy(bs)
-        transmat = transmat_solve(stats)
+        transmat = self.transmat_solve(stats)
         A_upds, Q_upds, b_upds = self.AQb_update(As, Qs, bs,
                 means, covars, stats, N_iter=N_iter, verbose=verbose,
                 gamma=gamma, tol=tol, num_biconvex=num_biconvex)
@@ -108,8 +108,7 @@ class MetastableSwitchingLDSSolver(object):
 
     def AQb_update(self, As, Qs, bs, means, covars, stats, N_iter=400,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=2):
-        Bs, Cs, Es, Ds, Fs = compute_aux_matrices(self.n_components,
-                self.n_features, As, bs, covars, stats)
+        Bs, Cs, Es, Ds, Fs = self.compute_aux_matrices(As, bs, covars, stats)
         self.print_aux_matrices(Bs, Cs, Es, Ds, Fs)
         A_upds, Q_upds, b_upds = [], [], []
 
@@ -152,7 +151,7 @@ class MetastableSwitchingLDSSolver(object):
         return b
 
     # FIX ME!
-    def transmat_solve(stats):
+    def transmat_solve(self, stats):
         counts = (np.maximum(stats['trans'], 1e-20).astype(np.float64))
         # Need to fix this......
         #self.transmat_, self.populations_ = \
