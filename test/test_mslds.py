@@ -21,6 +21,7 @@ from mixtape.datasets.base import get_data_home
 from os.path import join
 from sklearn.mixture.gmm import log_multivariate_normal_density
 from mixtape.utils import save_mslds_to_json_dict
+from mixtape.utils import gen_trajectory 
 
 def test_plusmin():
     import pdb, traceback, sys
@@ -89,7 +90,7 @@ def test_muller_potential():
         num_trajs = 1
         T = 2500
         sim_T = 2500
-        gamma = 200 
+        gamma = 1.0 
 
         # Generate data
         warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -112,6 +113,11 @@ def test_muller_potential():
         g.fit(data)
         hmm_score = g.score(data)
         print("HMM Log-Likelihood = %f" %  hmm_score)
+
+        # Saving the learned model
+        out = 'muller_potential.json'
+        print("Saving Learned Model to %s" % out)
+        save_mslds_to_json_dict(model, out)
 
         # Clear Display
         plt.cla()
@@ -151,17 +157,20 @@ def test_doublewell():
     try:
         n_components = 2
         n_features = 1
-        n_em_iter = 1
+        n_hotstart = 3
+        n_em_iter = 3
         n_experiments = 1
         tol=1e-1
+        gamma = .5
 
         data = load_doublewell(random_state=0)['trajectories']
         T = len(data[0])
 
         # Fit MSLDS model 
         model = MetastableSwitchingLDS(n_components, n_features,
-            n_experiments=n_experiments, n_em_iter=n_em_iter)
-        model.fit(data, gamma=.1, tol=tol)
+            n_experiments=n_experiments, n_em_iter=n_em_iter,
+            n_hotstart=n_hotstart)
+        model.fit(data, gamma=gamma, tol=tol)
         mslds_score = model.score(data)
         print("MSLDS Log-Likelihood = %f" %  mslds_score)
 
@@ -171,6 +180,11 @@ def test_doublewell():
         hmm_score = g.score(data)
         print("HMM Log-Likelihood = %f" %  hmm_score)
         print
+
+        # Saving the learned model
+        out = 'doublewell.json'
+        print("Saving Learned Model to %s" % out)
+        save_mslds_to_json_dict(model, out)
 
         # Plot sample from MSLDS
         sim_xs, sim_Ss = model.sample(T, init_state=0)
@@ -184,55 +198,6 @@ def test_doublewell():
         type, value, tb = sys.exc_info()
         traceback.print_exc()
         pdb.post_mortem(tb)
-
-def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
-        trajs, out, g, sim_T):
-    states = []
-    for k in range(n_components):
-        states.append([])
-
-    # Presort the data into the metastable wells
-    for k in range(n_components):
-        print "Presorting component %d" % k
-        for i in range(len(trajs)):
-            print "\tIn trajectory %d" % i
-            traj = trajs[i]
-            Z = traj.xyz
-            Z = np.reshape(Z, (len(Z), n_features), order='F')
-            logprob = log_multivariate_normal_density(Z,
-                np.array(g.means_), np.array(g.vars_), 
-                covariance_type='diag')
-            assignments = np.argmax(logprob, axis=1)
-            s = traj[assignments == k]
-            states[k].append(s)
-
-    # Pick frame from original trajectories closest to current sample
-    gen_traj = None
-    for t in range(sim_T):
-        print "t = %d" % t
-        h = hidden_states[t]
-        best_dist = np.inf
-        best_frame = None
-        for i in range(len(trajs)):
-            if t > 0:
-                states[h][i].superpose(gen_traj, t-1)
-            Z = states[h][i].xyz
-            Z = np.reshape(Z, (len(Z), n_features), order='F')
-            cur_sample = sample_traj[t]
-            cur_sample = np.tile(cur_sample, (len(Z), 1))
-            diffs = Z - cur_sample
-            dists = np.sum(diffs**2, axis=1)
-            ind = np.argmin(dists)
-            dist = dists[ind]
-            if dist < best_dist:
-                best_dist = dist 
-                best_frame = states[h][i][ind]
-        if t == 0:
-            gen_traj = best_frame
-        else:
-            gen_traj = gen_traj.join(best_frame)
-    gen_traj.save('%s.xtc' % out)
-    gen_traj[0].save('%s.xtc.pdb' % out)
 
 def test_alanine_dipeptide():
     import pdb, traceback, sys

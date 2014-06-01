@@ -206,8 +206,6 @@ class Q_problem(object):
             Q = np.linalg.inv(R)
             # Unscale answer
             #Q *= (1./scale)
-            import pdb
-            pdb.set_trace()
             return Q
 
     def print_Q_test_case(test_file, A, D, F, dim):

@@ -102,7 +102,11 @@ class A_problem(object):
     C =  | _     D^{-1}|
           -------------
         """
-        D_Q = D-Q
+        # if Q is larger than D, set D_Q = 0
+        if np.amin(np.linalg.eigh(D-Q)[0]) < 0:
+            D_Q = np.zeros((self.dim, self.dim))
+        else:
+            D_Q = D-Q
         constraints += [(D_Q_cds, D_Q), (Dinv_cds, Dinv)]
 
         # Add constraints to Gs
@@ -176,7 +180,7 @@ class A_problem(object):
 
         # if Q is larger than D, set D_Q = 0
         if np.amin(np.linalg.eigh(D-Q)[0]) < 0:
-            D_Q = np.zeros(self.dim)
+            D_Q = np.zeros((self.dim, self.dim))
         else:
             D_Q = D-Q
 
@@ -210,8 +214,6 @@ class A_problem(object):
                 methods=methods, X_init=X_init)
         if succeed:
             A = get_entries(X, A_cds)
-            import pdb
-            pdb.set_trace()
             return A
 
     def print_test_case(self, test_file, B, C, D, E, Q):

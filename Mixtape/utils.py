@@ -109,28 +109,81 @@ def print_solve_test_case(name, matrices, dim, test_file):
     disp = "%s_solve failed. " % name
     disp += "Autogenerating %s test case" % name
     disp = (bcolors.FAIL + disp + bcolors.ENDC)
+    test_num = np.random.randint(1000)
     print(disp)
     with open(test_file, 'w') as f:
         disp  = ""
         np.set_printoptions(threshold=np.nan)
         disp += "\ndef %s_test():\n" % name
         disp += "\t#Auto-generated test case from failing run of\n"
-        disp += "\t#%name-solve:\n"
+        disp += "\t#%s-solve:\n"%name
         disp += "\timport numpy as np\n"
         disp += "\timport pickle\n"
-        disp += "\tfrom mixtape.mslds_solver import AQb_solve,"\
-                            + " A_solve, Q_solve\n"
-        disp += "\tblock_dim = %d\n"%dim
+        disp += "\timport time\n"
+        disp += "\tfrom mixtape.mslds_solvers.A_problems import A_problem\n"
+        disp += "\tfrom mixtape.mslds_solvers.Q_problems import Q_problem\n"
+        disp += "\tn_features = %d\n"%dim
+        disp += "\t%s_prob = %s_problem(n_features)\n"%(name.lower(), name)
         arg_string = ""
         for mat, mat_name in matrices:
-            pickle.dump(mat, open("%s_%s_test.p" % (mat_name, name), "w"))
-            disp += ('\t%s = pickle.load(open("%s_%s_test.p", "r"))\n'
-                            % mat_name, mat_name, name)
+            pickle.dump(mat, open("%s_%s_test%d.p" 
+                                    % (mat_name, name, test_num), "w"))
+            disp += ('\t%s = pickle.load(open("%s_%s_test%d.p", "r"))\n'
+                            % (mat_name, mat_name, name, test_num))
             arg_string += mat_name + ", "
-        disp += "\t%s_solve(block_dim, %s\n" % name, arg_string
-        disp += "\t\tdisp=True, debug=False, verbose=False)\n"
+        disp += "\t%s_prob.solve(%s\n" % (name.lower(), arg_string)
+        disp += "\t\tdisp=True, debug=False, verbose=True)\n"
         f.write(disp)
     np.set_printoptions(threshold=1000)
+
+def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
+        trajs, out, g, sim_T):
+    states = []
+    for k in range(n_components):
+        states.append([])
+
+    # Presort the data into the metastable wells
+    for k in range(n_components):
+        print "Presorting component %d" % k
+        for i in range(len(trajs)):
+            print "\tIn trajectory %d" % i
+            traj = trajs[i]
+            Z = traj.xyz
+            Z = np.reshape(Z, (len(Z), n_features), order='F')
+            logprob = log_multivariate_normal_density(Z,
+                np.array(g.means_), np.array(g.vars_), 
+                covariance_type='diag')
+            assignments = np.argmax(logprob, axis=1)
+            s = traj[assignments == k]
+            states[k].append(s)
+
+    # Pick frame from original trajectories closest to current sample
+    gen_traj = None
+    for t in range(sim_T):
+        print "t = %d" % t
+        h = hidden_states[t]
+        best_dist = np.inf
+        best_frame = None
+        for i in range(len(trajs)):
+            if t > 0:
+                states[h][i].superpose(gen_traj, t-1)
+            Z = states[h][i].xyz
+            Z = np.reshape(Z, (len(Z), n_features), order='F')
+            cur_sample = sample_traj[t]
+            cur_sample = np.tile(cur_sample, (len(Z), 1))
+            diffs = Z - cur_sample
+            dists = np.sum(diffs**2, axis=1)
+            ind = np.argmin(dists)
+            dist = dists[ind]
+            if dist < best_dist:
+                best_dist = dist 
+                best_frame = states[h][i][ind]
+        if t == 0:
+            gen_traj = best_frame
+        else:
+            gen_traj = gen_traj.join(best_frame)
+    gen_traj.save('%s.xtc' % out)
+    gen_traj[0].save('%s.xtc.pdb' % out)
 
 
 def save_mslds_to_json_dict(model, out):

@@ -342,6 +342,24 @@ def test_A_solve_muller_4():
     print "total time: ", (t_end - t_start)
     assert np.linalg.norm(A,2) < 1
 
+def test_A_solve_muller_5():
+	#Auto-generated test case from failing run of
+	#A-solve:
+	import numpy as np
+	import pickle
+	import time
+	from mixtape.mslds_solvers.A_problems import A_problem
+	from mixtape.mslds_solvers.Q_problems import Q_problem
+	n_features = 2
+	a_prob = A_problem(n_features)
+	B = pickle.load(open("B_A_test653.p", "r"))
+	C = pickle.load(open("C_A_test653.p", "r"))
+	D = pickle.load(open("D_A_test653.p", "r"))
+	E = pickle.load(open("E_A_test653.p", "r"))
+	Q = pickle.load(open("Q_A_test653.p", "r"))
+	a_prob.solve(B, C, D, E, Q, 
+		disp=True, debug=False, verbose=True)
+
 def test_A_solve_alanine():
     #Auto-generated test case from failing run of
     #A-solve:
