@@ -108,7 +108,7 @@ def print_solve_test_case(name, matrices, dim, test_file):
     disp = "%s_solve failed. " % name
     disp += "Autogenerating %s test case" % name
     disp = (bcolors.FAIL + disp + bcolors.ENDC)
-    print disp
+    print(disp)
     with open(test_file, 'w') as f:
         disp  = ""
         np.set_printoptions(threshold=np.nan)

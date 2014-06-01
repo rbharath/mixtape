@@ -150,8 +150,9 @@ class GeneralSolver(object):
         f = f_init.get_feasibility(self.As, self.bs, self.Cs, self.ds,
                     self.Fs, self.Gs, 1e-4)
         num_stable=5
-        N_iter_orig=N_iter
-        N_iter_short=20
+        N_iter_orig = N_iter
+        N_iter_short = 20
+        N_iter_long = 40
         while step >= search_tol:
             alpha = U - step 
             h_alpha = lambda X: (self.obj(X) - alpha)
@@ -173,7 +174,7 @@ class GeneralSolver(object):
             else:
                 status = "Infeasible"
                 self.print_status(disp, debug, status, X_L, -np.inf, alpha)
-                N_iter = N_iter_orig
+                N_iter = N_iter_long
                 if step > search_tol:
                     step = search_tol
                     num_stable = 15

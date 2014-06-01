@@ -1,13 +1,19 @@
 import numpy as np
 from mixtape.utils import print_solve_test_case
+from mixtape.mslds_solvers.sparse_sdp.utils import get_entries, set_entries
+from mixtape.mslds_solvers.sparse_sdp.constraints import many_batch_equals
+from mixtape.mslds_solvers.sparse_sdp.constraints import grad_many_batch_equals
+from mixtape.mslds_solvers.sparse_sdp.general_sdp_solver \
+    import GeneralSolver
 
 class A_problem(object):
 
     def __init__(self, dim):
         self.dim = dim
+        self.scale = 2
 
     # Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
-    def A_dynamics(self, X, C, B, E, Qinv):
+    def objective(self, X, C, B, E, Qinv):
         """
         min Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
 
@@ -17,17 +23,20 @@ class A_problem(object):
               ------------
         X is PSD
         """
-        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.A_coords()
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.coords()
 
-        A = get_entries(X, A_1_cds)
-        term = np.dot(Qinv, (np.dot(C-B, A.T) + np.dot(C-B, A.T).T
+        A = get_entries(X, A_cds)
+        A_T = get_entries(X, A_T_cds)
+        term1 = np.dot(Qinv, (np.dot(C-B, A.T) + np.dot(C-B, A.T).T
                             + np.dot(A, np.dot(E, A.T))))
-        return np.trace(term)
+        term2 = np.dot(Qinv, (np.dot(C-B, A_T) + np.dot(C-B, A_T).T
+                            + np.dot(A_T.T, np.dot(E, A_T))))
+        return (np.trace(term1) + np.trace(term2))
 
     # grad Tr [Q^{-1} (C - B) A.T] = Q^{-1} (C - B)
     # grad Tr [Q^{-1} A [C - B].T] = Q^{-T} (C - B)
     # grad Tr [Q^{-1} A E A.T] = Q^{-T} A E.T + Q^{-1} A E
-    def grad_A_dynamics(self, X, C, B, E, Qinv):
+    def grad_objective(self, X, C, B, E, Qinv):
         """
         min Tr [ Q^{-1} ([C - B] A.T + A [C - B].T + A E A.T]
 
@@ -37,22 +46,24 @@ class A_problem(object):
               ------------
         X is PSD
         """
-        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = A_coords(dim)
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.coords()
         grad = np.zeros(np.shape(X))
         A = get_entries(X, A_cds)
+        A_T = get_entries(X, A_T_cds)
 
-        grad_term1 = np.dot(Qinv, C-B)
-        grad_term2 = np.dot(Qinv.T, C-B)
-        grad_term3 = np.dot(Qinv.T, np.dot(A, E.T)) + \
-                        np.dot(Qinv, np.dot(A, E))
-        gradA = grad_term1 + grad_term2 + grad_term3
+        gradA = (np.dot(Qinv, C-B) + np.dot(Qinv.T, C-B) 
+                    + np.dot(Qinv.T, np.dot(A, E.T)) 
+                    + np.dot(Qinv, np.dot(A, E)) )
+        gradA_T = (np.dot(Qinv, C-B) + np.dot(Qinv.T, C-B) 
+                    + np.dot(Qinv.T, np.dot(A_T.T, E.T)) 
+                    + np.dot(Qinv, np.dot(A_T.T, E))).T
 
         set_entries(grad, A_cds, gradA)
-        set_entries(grad, A_T_cds, gradA.T)
+        set_entries(grad, A_T_cds, gradA_T)
         return grad
 
 
-    def A_coords(self):
+    def coords(self):
         dim = self.dim
         """
           -------------
@@ -75,12 +86,12 @@ class A_problem(object):
 
         return (D_Q_cds, Dinv_cds, A_cds, A_T_cds)
 
-    def generate_A_constraints(self, D, Dinv, Q):
+    def constraints(self, D, Dinv, Q):
 
         As, bs, Cs, ds, = [], [], [], []
         Fs, gradFs, Gs, gradGs = [], [], [], []
 
-        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = A_coords(self.dim)
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.coords()
 
         constraints = []
 
@@ -104,9 +115,9 @@ class A_problem(object):
 
         return As, bs, Cs, ds, Fs, gradFs, Gs, gradGs
 
-    def A_solve(self, B, C, D, E, Q, mu, interactive=False,
+    def solve(self, B, C, D, E, Q, interactive=False,
             disp=True, verbose=False, debug=False,
-            N_iter=400, tol=1e-1, min_step_size=1e-6,
+            N_iter=400, search_tol=1e-1, tol=1e-1, min_step_size=1e-6,
             methods=['frank_wolfe']):
         """
         Solves A optimization.
@@ -120,7 +131,6 @@ class A_problem(object):
         X is PSD
         """
         dim = 4 * self.dim
-        search_tol = 1.
 
         # Copy in inputs 
         B = np.copy(B)
@@ -157,12 +167,12 @@ class A_problem(object):
         Qinv = np.linalg.inv(Q)
 
         # Compute trace upper bound
-        R = np.abs(np.trace(D)) + np.abs(np.trace(Dinv)) + 2*self.dim 
+        R = np.abs(np.trace(D)) + np.abs(np.trace(Dinv)) 
         Rs = [R]
 
         As, bs, Cs, ds, Fs, gradFs, Gs, gradGs = \
-                self.A_constraints(D, Dinv, Q)
-        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.A_coords()
+                self.constraints(D, Dinv, Q)
+        (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.coords()
 
         # Construct init matrix
         upper_norm = np.linalg.norm(D-Q, 2)
@@ -180,16 +190,12 @@ class A_problem(object):
                 X_init = None
                 const = const * factor
             else:
-                print "A_INIT SUCCESS AT %d" % i
-                print "const: ", const
                 break
-        if X_init == None:
-            print "A_INIT FAILED!"
 
         def obj(X):
-            return self.A_dynamics(X, C, B, E, Qinv)
+            return self.objective(X, C, B, E, Qinv)
         def grad_obj(X):
-            return self.grad_A_dynamics(X, C, B, E, Qinv)
+            return self.grad_objective(X, C, B, E, Qinv)
 
         g = GeneralSolver()
         g.save_constraints(dim, obj, grad_obj, As, bs, Cs, ds,
@@ -200,8 +206,6 @@ class A_problem(object):
                 methods=methods, X_init=X_init)
         if succeed:
             A = get_entries(X, A_cds)
-            if disp:
-                print "A:\n", A
             return A
 
     def print_A_test_case(self, test_file, B, C, D, E, Q):

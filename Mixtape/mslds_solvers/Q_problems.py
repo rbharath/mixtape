@@ -1,52 +1,56 @@
 import numpy as np
 from mixtape.utils import print_solve_test_case
+from mixtape.mslds_solvers.sparse_sdp.utils import get_entries, set_entries
+from mixtape.mslds_solvers.sparse_sdp.constraints import many_batch_equals
+from mixtape.mslds_solvers.sparse_sdp.constraints import grad_many_batch_equals
+from mixtape.mslds_solvers.sparse_sdp.general_sdp_solver \
+    import GeneralSolver
 
 class Q_problem(object):
 
-    def __init__(self):
+    def __init__(self, dim):
+        self.dim = dim
+        self.scale = 2
         pass
 
     # - log det R + Tr(RB)
-    def log_det_tr(self, X, B):
+    def objective(self, X, B):
         """
         minimize -log det R + Tr(RB)
               -----------
-             |D-ADA.T  I |
-        X =  |   I     R |
+             |D-ADA.T  cI |
+        X =  |   cI     R |
               -----------
         X is PSD
         """
         np.seterr(divide='raise')
-        (dim, _) = np.shape(X)
-        block_dim = int(dim/4)
-        (D_ADA_T_cds, I_1_cds, I_2_cds, R_1_cds) = Q_coords(block_dim)
+        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = self.coords()
         R = get_entries(X, R_cds)
         # Need to avoid ill-conditioning of R
-        R = R + (1e-5) * np.eye(block_dim)
+        R = R + (1e-5) * np.eye(self.dim)
         try:
-            #val1 = -np.log(np.linalg.det(R1)) + np.trace(np.dot(R1, B))
             L = np.linalg.cholesky(R)
             log_det = 2*np.sum(np.log(np.diag(L)))
             val = -log_det + np.trace(np.dot(R, B))
         except FloatingPointError:
-            if ((np.linalg.det(R1) < np.finfo(np.float).eps)
-                or not np.isfinite(np.linalg.det(R1))):
-                val1 = np.inf
+            if ((np.linalg.det(R) < np.finfo(np.float).eps)
+                or not np.isfinite(np.linalg.det(R))):
+                val = np.inf
         return val 
 
     # grad - log det R = -R^{-1} = -Q (see Boyd and Vandenberge, A4.1)
     # grad tr(RB) = B^T
-    def grad_log_det_tr(self, X, B):
+    def grad_objective(self, X, B):
         """
         minimize -log det R + Tr(RB)
               -----------
-             |D-ADA.T  I |
-        X =  |   I     R |
+             |D-ADA.T  cI |
+        X =  |   cI     R |
               -----------
         X is PSD
         """
         (dim, _) = np.shape(X)
-        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = Q_coords(self.dim)
+        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = self.coords()
         grad = np.zeros(np.shape(X))
         R = get_entries(X, R_cds)
         # Need to avoid ill-conditioning of R1, R2
@@ -57,17 +61,18 @@ class Q_problem(object):
         return grad
 
 
-    def Q_coords(self, dim):
+    def coords(self):
         """
         Helper function that specifies useful coordinates for
         the Q convex program.
         minimize -log det R + Tr(RB)
               -----------
-             |D-ADA.T  I |
-        X =  |   I     R |
+             |D-ADA.T  cI |
+        X =  |   cI     R |
               -----------
         X is PSD
         """
+        dim = self.dim
         # Block 1
         D_ADA_T_cds = (0, dim, 0, dim)
         I_1_cds = (0, dim, dim, 2*dim)
@@ -76,33 +81,34 @@ class Q_problem(object):
 
         return (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds)
 
-    def Q_constraints(self, dim, A, B, D, c):
+    def constraints(self, A, B, D, c):
         """
         Specifies the convex program required for Q optimization.
 
         minimize -log det R + Tr(RB)
               -----------
-             |D-ADA.T  I |
-        X =  |   I     R |
+             |D-ADA.T  cI |
+        X =  |   cI     R |
               -----------
         X is PSD
         """
+        dim = self.dim
+        constraints = []
 
-        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = Q_coords(dim)
-
+        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = self.coords()
         As, bs, Cs, ds, = [], [], [], []
         Fs, gradFs, Gs, gradGs = [], [], [], []
 
         """
         We need to enforce constant equalities in X.
           ------------
-         |D-ADA.T   I |
-    C =  | I        _ |
+         |D-ADA.T   cI |
+    C =  | cI        _ |
           ------------
         """
         D_ADA_T = D - np.dot(A, np.dot(D, A.T))
-        constraints += [(D_ADA_T_cds, D_ADA_T), (I_1_cds, np.eye(dim)),
-                        (I_2_cds, np.eye(dim))]
+        constraints += [(D_ADA_T_cds, D_ADA_T), (I_1_cds, c*np.eye(dim)),
+                        (I_2_cds, c*np.eye(dim))]
 
         # Add constraints to Gs
         def const_regions(X):
@@ -121,22 +127,22 @@ class Q_problem(object):
         return As, bs, Cs, ds, Fs, gradFs, Gs, gradGs
 
 
-    def Q_solve(self, A, D, F, interactive=False, disp=True,
+    def solve(self, A, D, F, interactive=False, disp=True,
             verbose=False, debug=False, Rs=[10, 100, 1000], N_iter=400,
-            gamma=.5, tol=1e-1, min_step_size=1e-6,
+            gamma=.5, tol=1e-1, search_tol=1e-1, min_step_size=1e-6,
             methods=['frank_wolfe']):
         """
         Solves Q optimization.
 
         min_Q -log det R + Tr(RF)
               -----------
-             |D-ADA.T  I |
-        X =  |   I     R |
+             |D-ADA.T  cI |
+        X =  |   cI     R |
               -----------
         X is PSD
         """
-        dim = 2*block_dim
-        search_tol = 1.
+        dim = self.dim
+        prob_dim = self.scale*self.dim
 
         # Copy over initial data 
         D = np.copy(D)
@@ -153,44 +159,40 @@ class Q_problem(object):
         scale_factor = np.linalg.norm(F, 2)
         if scale_factor < 1e-6:
             # F can be zero if there are no observations for this state 
-            return np.eye(block_dim)
+            return np.eye(dim)
 
         # Improving conditioning
         delta=1e-2
-        D = D + delta*np.eye(block_dim)
+        D = D + delta*np.eye(dim)
         Dinv = np.linalg.inv(D)
-        D_ADA_T = D - np.dot(A, np.dot(D, A.T)) + delta*np.eye(block_dim)
+        D_ADA_T = D - np.dot(A, np.dot(D, A.T)) + delta*np.eye(dim)
 
         # Compute trace upper bound
         R = (2*np.trace(D) + 2*(1./gamma)*np.trace(Dinv))
         Rs = [R]
 
         As, bs, Cs, ds, Fs, gradFs, Gs, gradGs = \
-                Q_constraints(block_dim, A, F, D, c)
-        (D_ADA_T_cds, I_1_cds, I_2_cds, R_1_cds, 
-            D_cds, c_I_1_cds, c_I_2_cds, R_2_cds) = \
-                Q_coords(block_dim)
+                self.constraints(A, F, D, c)
+        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = self.coords()
 
         # Construct init matrix
-        X_init = np.zeros((dim, dim))
+        X_init = np.zeros((prob_dim, prob_dim))
         set_entries(X_init, D_ADA_T_cds, D_ADA_T)
-        set_entries(X_init, I_1_cds, np.eye(block_dim))
-        set_entries(X_init, I_2_cds, np.eye(block_dim))
+        set_entries(X_init, c*I_1_cds, np.eye(dim))
+        set_entries(X_init, c*I_2_cds, np.eye(dim))
         Qinv_init = np.linalg.inv(D_ADA_T) 
         set_entries(X_init, R_cds, Qinv_init)
-        X_init = X_init + (1e-4)*np.eye(dim)
+
+        X_init = X_init + (1e-4)*np.eye(prob_dim)
         if min(np.linalg.eigh(X_init)[0]) < 0:
-            print "Q_INIT FAILED!"
             X_init == None
-        else:
-            print "Q_INIT SUCCESS!"
 
         g = GeneralSolver()
         def obj(X):
-            return (1./scale_factor) * log_det_tr(X, F)
+            return (1./scale_factor) * self.objective(X, F)
         def grad_obj(X):
-            return (1./scale_factor) * grad_log_det_tr(X, F)
-        g.save_constraints(dim, obj, grad_obj, As, bs, Cs, ds,
+            return (1./scale_factor) * self.grad_objective(X, F)
+        g.save_constraints(prob_dim, obj, grad_obj, As, bs, Cs, ds,
                 Fs, gradFs, Gs, gradGs)
         (U, X, succeed) = g.solve(N_iter, tol, search_tol,
             interactive=interactive, disp=disp, verbose=verbose, 
@@ -199,12 +201,10 @@ class Q_problem(object):
         if succeed:
             R = scale*get_entries(X, R_cds)
             # Ensure stability
-            R = R + (1e-3) * np.eye(block_dim)
+            R = R + (1e-3) * np.eye(dim)
             Q = np.linalg.inv(R)
             # Unscale answer
             Q *= (1./scale)
-            if disp:
-                print "Q:\n", Q
             return Q
 
     def print_Q_test_case(test_file, A, D, F, dim):
