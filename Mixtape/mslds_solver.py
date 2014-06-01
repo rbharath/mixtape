@@ -1,16 +1,8 @@
 import numpy as np
 from mixtape._reversibility import reversible_transmat
-from mixtape.mslds_solvers.sparse_sdp.constraints import A_constraints
-from mixtape.mslds_solvers.sparse_sdp.constraints import A_coords
-from mixtape.mslds_solvers.sparse_sdp.constraints import Q_constraints
-from mixtape.mslds_solvers.sparse_sdp.constraints import Q_coords
-from mixtape.mslds_solvers.sparse_sdp.objectives import A_dynamics
-from mixtape.mslds_solvers.sparse_sdp.objectives import grad_A_dynamics
-from mixtape.mslds_solvers.sparse_sdp.objectives import log_det_tr
-from mixtape.mslds_solvers.sparse_sdp.objectives import grad_log_det_tr
-from mixtape.mslds_solvers.sparse_sdp.general_sdp_solver \
-        import GeneralSolver
 from mixtape.mslds_solvers.sparse_sdp.utils import get_entries, set_entries
+from mixtape.mslds_solvers.A_problems import A_problem
+from mixtape.mslds_solvers.Q_problems import Q_problem
 from mixtape.utils import bcolors
 import pickle
 
@@ -25,6 +17,8 @@ class MetastableSwitchingLDSSolver(object):
         self.covars_weight = 1.
         self.n_components = n_components
         self.n_features = n_features
+        self.a_prob = A_problem(n_features)
+        self.q_prob = Q_problem(n_features)
 
     def do_hmm_mstep(self, stats):
         print "Starting hmm mstep"
@@ -122,7 +116,7 @@ class MetastableSwitchingLDSSolver(object):
         for i in range(self.n_components):
             B, C, D, E, F = Bs[i], Cs[i], Ds[i], Es[i], Fs[i]
             A, Q, mu = As[i], Qs[i], means[i]
-            A_upd, Q_upd, b_upd = AQb_solve(self.n_features, A, Q, mu, B,
+            A_upd, Q_upd, b_upd = self.AQb_solve(A, Q, mu, B,
                     C, D, E, F, N_iter=N_iter, verbose=verbose,
                     gamma=gamma, tol=tol, num_biconvex=num_biconvex)
             A_upds += [A_upd]
@@ -130,73 +124,77 @@ class MetastableSwitchingLDSSolver(object):
             b_upds += [b_upd]
         return A_upds, Q_upds, b_upds
 
-def AQb_solve(dim, A, Q, mu, B, C, D, E, F, interactive=False, disp=True,
-        verbose=False, debug=False, Rs=[10, 100, 1000], N_iter=400,
-        gamma=.5, tol=1e-1, num_biconvex=2):
-    # Should this be iterated for biconvex solution? Yes. Need to fix.
-    for i in range(num_biconvex):
-        Q_upd = Q_solve(dim, A, D, F, interactive=interactive,
-                    disp=disp, debug=debug, Rs=Rs, verbose=verbose,
-                    gamma=gamma, tol=tol, N_iter=N_iter)
-        if Q_upd != None:
-            Q = Q_upd
-        else:
-            print_Q_test_case("autogen_Q_tests.py", A, D, F, dim)
-        A_upd = A_solve(dim, B, C, D, E, Q, mu, interactive=interactive,
-                        disp=disp, debug=debug, Rs=Rs, N_iter=N_iter, 
-                        verbose=verbose, tol=tol)
-        if A_upd != None:
-            A = A_upd
-        else:
-            print_A_test_case("autogen_A_tests.py", B, C, D, E, Q, mu, dim)
-    b = b_solve(dim, A, mu)
-    return A, Q, b
+    def AQb_solve(self, A, Q, mu, B, C, D, E, F, interactive=False, disp=True,
+            verbose=False, debug=False, N_iter=400,
+            gamma=.5, tol=1e-1, num_biconvex=2):
+        for i in range(num_biconvex):
+            Q_upd = self.q_prob.solve(A, D, F, interactive=interactive,
+                        disp=disp, debug=debug, verbose=verbose,
+                        gamma=gamma, tol=tol, N_iter=N_iter)
+            if Q_upd != None:
+                Q = Q_upd
+            else:
+                self.q_prob.print_test_case("autogen_Q_tests.py", 
+                    A, D, F)
+            A_upd = self.a_prob.solve(B, C, D, E, Q, interactive=interactive,
+                            disp=disp, debug=debug, N_iter=N_iter, 
+                            verbose=verbose, tol=tol)
+            if A_upd != None:
+                A = A_upd
+            else:
+                self.a_prob.print_test_case("autogen_A_tests.py", 
+                    B, C, D, E, Q)
+        b = self.b_solve(A, mu)
+        return A, Q, b
 
-# FIX ME!
-def transmat_solve(stats):
-    counts = (np.maximum(stats['trans'], 1e-20).astype(np.float64))
-    # Need to fix this......
-    #self.transmat_, self.populations_ = \
-    #        reversible_transmat(counts)
-    (dim, _) = np.shape(counts)
-    norms = np.zeros(dim)
-    for i in range(dim):
-        norms[i] = sum(counts[i])
-    revised_counts = np.copy(counts)
-    for i in range(dim):
-        revised_counts[i] /= norms[i]
-    return revised_counts
+    def b_solve(self, A, mu):
+        b =  mu - np.dot(A, mu)
+        return b
 
-def compute_aux_matrices(n_components, n_features, As, bs, covars, stats):
-    Bs, Cs, Es, Ds, Fs = [], [], [], [], []
-    for i in range(n_components):
-        A, b, covar = As[i], bs[i], covars[i]
-        b = np.reshape(b, (n_features, 1))
-        B = stats['obs*obs[t-1].T'][i]
-        mean_but_last = np.reshape(stats['obs[:-1]'][i], (n_features, 1))
-        C = np.dot(b, mean_but_last.T)
-        E = stats['obs[:-1]*obs[:-1].T'][i]
-        D = covars[i]
-        F = ((stats['obs[1:]*obs[1:].T'][i]
-               - np.dot(stats['obs*obs[t-1].T'][i], A.T)
-               - np.dot(np.reshape(stats['obs[1:]'][i],
-                                  (n_features, 1)), b.T))
-           + (-np.dot(A, stats['obs*obs[t-1].T'][i].T)
-               + np.dot(A, np.dot(stats['obs[:-1]*obs[:-1].T'][i], A.T))
-               + np.dot(A, np.dot(np.reshape(stats['obs[:-1]'][i],
-                                      (n_features, 1)), b.T)))
-           + (-np.dot(b, np.reshape(stats['obs[1:]'][i],
-                                    (n_features, 1)).T)
-               + np.dot(b, np.dot(np.reshape(stats['obs[:-1]'][i],
-                                          (n_features, 1)).T, A.T))
-               + stats['post[1:]'][i] * np.dot(b, b.T)))
-        Bs += [B]
-        Cs += [C]
-        Es += [E]
-        Ds += [D]
-        Fs += [F]
-    return Bs, Cs, Es, Ds, Fs
+    # FIX ME!
+    def transmat_solve(stats):
+        counts = (np.maximum(stats['trans'], 1e-20).astype(np.float64))
+        # Need to fix this......
+        #self.transmat_, self.populations_ = \
+        #        reversible_transmat(counts)
+        (dim, _) = np.shape(counts)
+        norms = np.zeros(dim)
+        for i in range(dim):
+            norms[i] = sum(counts[i])
+        revised_counts = np.copy(counts)
+        for i in range(dim):
+            revised_counts[i] /= norms[i]
+        return revised_counts
 
-def b_solve(n_features, A, mu):
-    b =  mu - np.dot(A, mu)
-    return b
+    def compute_aux_matrices(self, As, bs, covars, stats):
+        n_components = self.n_components
+        n_features = self.n_features
+        Bs, Cs, Es, Ds, Fs = [], [], [], [], []
+        for i in range(n_components):
+            A, b, covar = As[i], bs[i], covars[i]
+            b = np.reshape(b, (n_features, 1))
+            B = stats['obs*obs[t-1].T'][i]
+            mean_but_last = np.reshape(stats['obs[:-1]'][i], (n_features, 1))
+            C = np.dot(b, mean_but_last.T)
+            E = stats['obs[:-1]*obs[:-1].T'][i]
+            D = covars[i]
+            F = ((stats['obs[1:]*obs[1:].T'][i]
+                   - np.dot(stats['obs*obs[t-1].T'][i], A.T)
+                   - np.dot(np.reshape(stats['obs[1:]'][i],
+                                      (n_features, 1)), b.T))
+               + (-np.dot(A, stats['obs*obs[t-1].T'][i].T)
+                   + np.dot(A, np.dot(stats['obs[:-1]*obs[:-1].T'][i], A.T))
+                   + np.dot(A, np.dot(np.reshape(stats['obs[:-1]'][i],
+                                          (n_features, 1)), b.T)))
+               + (-np.dot(b, np.reshape(stats['obs[1:]'][i],
+                                        (n_features, 1)).T)
+                   + np.dot(b, np.dot(np.reshape(stats['obs[:-1]'][i],
+                                              (n_features, 1)).T, A.T))
+                   + stats['post[1:]'][i] * np.dot(b, b.T)))
+            Bs += [B]
+            Cs += [C]
+            Es += [E]
+            Ds += [D]
+            Fs += [F]
+        return Bs, Cs, Es, Ds, Fs
+

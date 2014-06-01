@@ -208,6 +208,6 @@ class A_problem(object):
             A = get_entries(X, A_cds)
             return A
 
-    def print_A_test_case(self, test_file, B, C, D, E, Q):
+    def print_test_case(self, test_file, B, C, D, E, Q):
         matrices = [(B, "B"), (C, "C"), (D, "D"), (E, "E"), (Q, "Q")]
         print_solve_test_case("A", matrices, self.dim, test_file)

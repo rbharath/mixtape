@@ -4,7 +4,6 @@ import mdtraj as md
 from mslds_examples import PlusminModel, MullerModel, MullerForce
 from mslds_examples import AlanineDipeptideModel
 from mixtape.mslds_solver import MetastableSwitchingLDSSolver
-from mixtape.mslds_solver import AQb_solve, A_solve, Q_solve
 from sklearn.hmm import GaussianHMM
 from test_mslds_estep import reference_estep
 from mixtape.datasets.alanine_dipeptide import fetch_alanine_dipeptide
@@ -17,7 +16,8 @@ from mixtape.datasets.base import get_data_home
 from os.path import join
 
 def test_AQb_solve_simple():
-    dim = 1
+    n_components = 1
+    n_features = 1
     A = np.array([[.5]])
     Q = np.array([[.1]])
     Qinv = np.array([[10.]])
@@ -28,12 +28,14 @@ def test_AQb_solve_simple():
     Dinv = np.array([[1.]])
     E = np.array([[1.]])
     F = np.array([[1.]])
-    AQb_solve(dim, A, Q, mu, B, C, D, E, F)
+    solver = MetastableSwitchingLDSSolver(n_components, n_features)
+    solver.AQb_solve(A, Q, mu, B, C, D, E, F)
 
 def test_AQb_solve_plusmin():
     # Numbers below were generated from a sample run of
     # plusmin
-    dim = 1
+    n_components = 1
+    n_features = 1
     A = np.array([[.0]])
     Q = np.array([[.02]])
     Qinv = np.array([[48.99]])
@@ -44,32 +46,8 @@ def test_AQb_solve_plusmin():
     Dinv = np.array([[49.02]])
     E = np.array([[48.99]])
     F = np.array([[25.47]])
-    AQb_solve(dim, A, Q, mu, B, C, D, E, F)
-
-def test_A_solve_plusmin():
-    block_dim = 1
-    B = np.array([[1238.916]])
-    C = np.array([[1225.025]])
-    D = np.array([[.0204]])
-    E = np.array([[48.99]])
-    Q = np.array([[.02]])
-    Dinv = np.array([[49.02]])
-    Qinv = np.array([[48.99]])
-    mu = np.array([[1.]])
-    A_solve(block_dim, B, C, D, E, Q, mu)
-
-def test_A_solve_plusmin_2():
-    block_dim = 1
-    B = np.array([[ 965.82431552]])
-    C = np.array([[ 950.23843989]])
-    D = np.array([[ 0.02430409]])
-    E = np.array([[ 974.49540394]])
-    F = np.array([[ 24.31867657]])
-    Q = np.array([[ 0.02596519]])
-    mu = np.array([[ -1.]])
-    Dinv = np.linalg.inv(D)
-    Qinv = np.linalg.inv(Q)
-    A_solve(block_dim, B, C, D, E, Q, mu)
+    solver = MetastableSwitchingLDSSolver(n_components, n_features)
+    solver.AQb_solve(A, Q, mu, B, C, D, E, F)
 
 def test_Q_solve_muller():
     block_dim = 2
@@ -95,24 +73,6 @@ def test_Q_solve_muller():
     print "D:\n", D
     assert Q != None
     assert np.linalg.norm(Q, 2) < np.linalg.norm(D, 2)
-
-def test_A_solve_muller():
-    block_dim = 2
-    B = np.array([[208.27749525,  -597.11827148],
-                   [ -612.99179464, 1771.25551671]])
-
-    C = np.array([[202.83070879, -600.32796941],
-                   [-601.76432584, 1781.07130791]])
-
-    D = np.array([[0.00326556, 0.00196009],
-                   [0.00196009, 0.00322879]])
-
-    E = np.array([[205.80695137, -599.79918374],
-                  [-599.79918374, 1782.52514543]])
-    Q = .9 * D
-    mu =  np.array([[-0.7010104, 1.29133034]])
-    mu = np.reshape(mu, (block_dim, 1))
-    A_solve(block_dim, B, C, D, E, Q, mu, verbose=False, disp=True)
 
 def test_Q_solve_muller_2():
     block_dim = 2.
@@ -157,28 +117,6 @@ def test_Q_solve_muller_3():
     assert Q != None
     assert np.linalg.norm(Q, 2) < np.linalg.norm(D, 2)
 
-
-def test_A_solve_muller_2():
-    block_dim = 2.
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    np.set_printoptions(precision=4)
-    B = np.array([[  359.92406863,  -853.5934402 ],
-                  [ -842.86780552,  2010.34907067]])
-
-    C = np.array([[  361.80793384,  -850.60352492],
-                  [ -851.82693628,  2002.62881727]])
-
-    D = np.array([[ 0.00261965,  0.00152437],
-                  [ 0.00152437,  0.00291518]])
-
-    E = np.array([[  364.88271615,  -849.83206073],
-                  [ -849.83206073,  2004.72145185]])
-    Q = .9 * D
-    Dinv = np.linalg.inv(D)
-    Qinv = np.linalg.inv(Q)
-    mu =  np.array([[-0.7010104, 1.29133034]])
-    mu = np.reshape(mu, (block_dim, 1))
-    A_solve(block_dim, B, C, D, E, Q, mu, verbose=False, disp=True)
 
 def test_A_solve_muller_3():
     block_dim = 2
