@@ -159,10 +159,11 @@ class Q_problem(object):
             return np.eye(dim)
 
         # Improving conditioning
-        delta=1e-6
+        delta=1e-4
         D = D + delta*np.eye(dim)
         Dinv = np.linalg.inv(D)
         D_ADA_T = D - np.dot(A, np.dot(D, A.T)) + delta*np.eye(dim)
+        
 
         # Compute trace upper bound
         R = (2*np.trace(D) + 2*(1./gamma)*np.trace(Dinv))
@@ -175,8 +176,8 @@ class Q_problem(object):
         # Construct init matrix
         X_init = np.zeros((prob_dim, prob_dim))
         set_entries(X_init, D_ADA_T_cds, D_ADA_T)
-        set_entries(X_init, c*I_1_cds, np.eye(dim))
-        set_entries(X_init, c*I_2_cds, np.eye(dim))
+        set_entries(X_init, I_1_cds, c*np.eye(dim))
+        set_entries(X_init, I_2_cds, c*np.eye(dim))
         #Qinv_init = np.linalg.inv(D_ADA_T) 
         Qinv_init = (c**2) * np.linalg.inv(D_ADA_T) 
         set_entries(X_init, R_cds, Qinv_init)

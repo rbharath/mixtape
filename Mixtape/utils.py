@@ -124,7 +124,7 @@ def print_solve_test_case(name, matrices, dim, test_file):
         arg_string = ""
         for mat, mat_name in matrices:
             pickle.dump(mat, open("%s_%s_test.p" % (mat_name, name), "w"))
-            test_string += ('\t%s = pickle.load(open("%s_%s_test.p", "r"))\n'
+            disp += ('\t%s = pickle.load(open("%s_%s_test.p", "r"))\n'
                             % mat_name, mat_name, name)
             arg_string += mat_name + ", "
         disp += "\t%s_solve(block_dim, %s\n" % name, arg_string
@@ -133,58 +133,61 @@ def print_solve_test_case(name, matrices, dim, test_file):
     np.set_printoptions(threshold=1000)
 
 
-def save_mslds_to_json_dict(model, outfile):
-    result = {
-        'model': 'MetastableSwitchingLinearDynamicalSystem',
-        'n_states': model.n_states,
-        'n_features': model.n_features,
-        'transmat': model.transmat_.tolist(),
-        'means': model.means_.tolist(),
-        'covars': model.covars_.tolist(),
-        'As': model.As_.tolist(),
-        'bs': model.bs_.tolist(),
-        'Qs': model.Qs_.tolist(),
-    }
+def save_mslds_to_json_dict(model, out):
+    with open(out, 'w') as outfile:
+        result = {
+            'model': 'MetastableSwitchingLinearDynamicalSystem',
+            'n_states': model.n_states,
+            'n_features': model.n_features,
+            'transmat': model.transmat_.tolist(),
+            'means': model.means_.tolist(),
+            'covars': model.covars_.tolist(),
+            'As': model.As_.tolist(),
+            'bs': model.bs_.tolist(),
+            'Qs': model.Qs_.tolist(),
+        }
 
-    if not np.all(np.isfinite(model.transmat_)):
-        raise ValueError('Nonfinite numbers in transmat!')
+        if not np.all(np.isfinite(model.transmat_)):
+            raise ValueError('Nonfinite numbers in transmat!')
 
-    json.dump(result, outfile)
-    outfile.write('\n')
+        json.dump(result, outfile)
+        outfile.write('\n')
 
-def load_mslds_from_json_dict(model, model_dict):
-    # Check that the num of states and features agrees
-    n_features = float(model_dict['n_features'])
-    n_components = float(model_dict['n_states'])
-    if n_features != self.n_features or n_states != self.n_states:
-        raise ValueError('Invalid number of states or features')
-    # read array values from the json dictionary
-    Qs = []
-    for Q in model_dict['Qs']:
-        Qs.append(np.array(Q))
-    As = []
-    for A in model_dict['As']:
-        As.append(np.array(A))
-    bs = []
-    for b in model_dict['bs']:
-        bs.append(np.array(b))
-    means = []
-    for mean in model_dict['means']:
-        means.append(np.array(mean))
-    covars = []
-    for covar in model_dict['covars']:
-        covars.append(np.array(covar))
-    # Transmat
-    transmat = np.array(model_dict['transmat'])
-    # Create the MSLDS model
-    model = MetastableSwitchingLDS(n_components, n_features) 
-    model.Qs_ = Qs
-    model.As_ = As
-    model.bs_ = bs
-    model.means_ = means
-    model.covars_ = covars
-    model.transmat_ = transmat
-    return model
+def load_mslds_from_json_dict(out):
+    # Place import here to avoid weird circular dependencies
+    from mixtape.mslds import MetastableSwitchingLDS
+    with open(out, 'r') as outfile:
+        model_dict = json.load(outfile)
+        # Check that the num of states and features agrees
+        n_features = float(model_dict['n_features'])
+        n_components = float(model_dict['n_states'])
+        # read array values from the json dictionary
+        Qs = []
+        for Q in model_dict['Qs']:
+            Qs.append(np.array(Q))
+        As = []
+        for A in model_dict['As']:
+            As.append(np.array(A))
+        bs = []
+        for b in model_dict['bs']:
+            bs.append(np.array(b))
+        means = []
+        for mean in model_dict['means']:
+            means.append(np.array(mean))
+        covars = []
+        for covar in model_dict['covars']:
+            covars.append(np.array(covar))
+        # Transmat
+        transmat = np.array(model_dict['transmat'])
+        # Create the MSLDS model
+        model = MetastableSwitchingLDS(n_components, n_features) 
+        model.Qs_ = Qs
+        model.As_ = As
+        model.bs_ = bs
+        model.means_ = means
+        model.covars_ = covars
+        model.transmat_ = transmat
+        return model
 
 ##########################################################################
 # END of MSLDS Utils (experimental)

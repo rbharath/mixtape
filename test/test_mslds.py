@@ -20,6 +20,7 @@ from mixtape.datasets.src_kinase import TARGET_DIRECTORY \
 from mixtape.datasets.base import get_data_home
 from os.path import join
 from sklearn.mixture.gmm import log_multivariate_normal_density
+from mixtape.utils import save_mslds_to_json_dict
 
 def test_plusmin():
     import pdb, traceback, sys
@@ -30,7 +31,7 @@ def test_plusmin():
         n_experiments = 1
         n_seq = 1
         T = 2000
-        gamma = 512.
+        gamma = 1. 
 
         # Generate data
         plusmin = PlusminModel()
@@ -40,11 +41,11 @@ def test_plusmin():
 
         # Train MSLDS
         mslds_scores = []
-        l = MetastableSwitchingLDS(n_components, n_features,
+        model = MetastableSwitchingLDS(n_components, n_features,
                 n_hotstart=n_hotstart, n_em_iter=n_em_iter,
                 n_experiments=n_experiments)
-        l.fit(data, gamma=gamma)
-        mslds_score = l.score(data)
+        model.fit(data, gamma=gamma)
+        mslds_score = model.score(data)
         print("gamma = %f" % gamma)
         print("MSLDS Log-Likelihood = %f" %  mslds_score)
         print
@@ -56,8 +57,13 @@ def test_plusmin():
         print("HMM Log-Likelihood = %f" %  hmm_score)
         print
 
+        # Saving the learned model
+        out = 'plusmin.json'
+        print("Saving Learned Model to %s" % out)
+        save_mslds_to_json_dict(model, out)
+
         # Plot sample from MSLDS
-        sim_xs, sim_Ss = l.sample(T, init_state=0, init_obs=plusmin.mus[0])
+        sim_xs, sim_Ss = model.sample(T, init_state=0, init_obs=plusmin.mus[0])
         sim_xs = np.reshape(sim_xs, (n_seq, T, plusmin.x_dim))
         plt.close('all')
         plt.figure(1)
@@ -65,6 +71,8 @@ def test_plusmin():
         plt.plot(range(T), sim_xs[0], label='Sampled Observations')
         plt.legend()
         plt.show()
+        import pdb
+        pdb.set_trace()
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()

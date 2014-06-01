@@ -130,7 +130,7 @@ class A_problem(object):
               -------------
         X is PSD
         """
-        dim = 4 * self.dim
+        prob_dim = 2 * self.dim
 
         # Copy in inputs 
         B = np.copy(B)
@@ -174,17 +174,23 @@ class A_problem(object):
                 self.constraints(D, Dinv, Q)
         (D_Q_cds, Dinv_cds, A_cds, A_T_cds) = self.coords()
 
+        # if Q is larger than D, set D_Q = 0
+        if np.amin(np.linalg.eigh(D-Q)[0]) < 0:
+            D_Q = np.zeros(self.dim)
+        else:
+            D_Q = D-Q
+
         # Construct init matrix
-        upper_norm = np.linalg.norm(D-Q, 2)
+        upper_norm = np.linalg.norm(D_Q, 2)
         lower_norm = np.linalg.norm(D, 2)
         const = np.sqrt(upper_norm/lower_norm)
 
-        X_init = np.zeros((dim, dim))
-        set_entries(X_init, D_Q_cds, D-Q)
+        X_init = np.zeros((prob_dim, prob_dim))
+        set_entries(X_init, D_Q_cds, D_Q)
         set_entries(X_init, A_cds, const*np.eye(self.dim))
         set_entries(X_init, A_T_cds, const*np.eye(self.dim))
         set_entries(X_init, Dinv_cds, Dinv)
-        X_init = X_init + (1e-1)*np.eye(dim)
+        X_init = X_init + (1e-1)*np.eye(prob_dim)
         if min(np.linalg.eigh(X_init)[0]) < 0:
             import pdb
             pdb.set_trace()
@@ -196,7 +202,7 @@ class A_problem(object):
             return self.grad_objective(X, C, B, E, Qinv)
 
         g = GeneralSolver()
-        g.save_constraints(dim, obj, grad_obj, As, bs, Cs, ds,
+        g.save_constraints(prob_dim, obj, grad_obj, As, bs, Cs, ds,
                 Fs, gradFs, Gs, gradGs)
         (U, X, succeed) = g.solve(N_iter, tol, search_tol,
                 interactive=interactive, disp=disp, verbose=verbose,
