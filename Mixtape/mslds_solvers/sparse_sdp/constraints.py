@@ -231,18 +231,22 @@ def grad_l2_batch_equals(X, A, coord):
 
 def many_batch_equals(X, constraints):
     sum_c = 0
-    (dim, _) = np.shape(X)
     for coord, mat in constraints:
+        (dim, _) = np.shape(mat)
         c2 = l2_batch_equals(X, mat, coord)
         sum_c += c2
+    if dim > 4:
+        dim = dim/4.
     return (1./dim**2) * sum_c
 
 def grad_many_batch_equals(X, constraints):
     grad = np.zeros(np.shape(X))
-    (dim, _) = np.shape(X)
     for coord, mat in constraints:
+        (dim, _) = np.shape(mat)
         grad2 = grad_l2_batch_equals(X, mat, coord)
         grad += grad2
+    if dim > 4:
+        dim = dim/4.
     return (1./dim**2) * grad
 
 def batch_linear_equals(X, c, P_coords, Q, R_coords):
@@ -263,19 +267,23 @@ def grad_batch_linear_equals(X, c, P_coords, Q, R_coords):
 
 def many_batch_linear_equals(X, constraints):
     sum_c = 0
-    (dim, _) = np.shape(X)
     for c, P_coords, Q, R_coords in constraints:
+        (dim, _) = np.shape(Q)
         sum_c += batch_linear_equals(X, c, P_coords, Q, R_coords)
+    if dim > 4:
+        dim = dim/4.
     return (1./dim**2) * sum_c
 
 def grad_many_batch_linear_equals(X, constraints):
     grad = np.zeros(np.shape(X))
-    (dim, _) = np.shape(X)
     for c, P_coords, Q, R_coords in constraints:
+        (dim, _) = np.shape(Q)
         grad += grad_l2_batch_equals(X, c*get_entries(X, P_coords) + Q,
                     R_coords)
         if c != 0:
             grad += grad_l2_batch_equals(X,
                     (1./c)*(get_entries(X, R_coords) - Q), P_coords)
 
+    if dim > 4:
+        dim = dim/4.
     return (1./dim**2) * grad

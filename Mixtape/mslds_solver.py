@@ -32,7 +32,8 @@ class MetastableSwitchingLDSSolver(object):
         return transmat, means, covars
 
     def do_mstep(self, As, Qs, bs, means, covars, stats, N_iter=400,
-                    verbose=False, gamma=.5, tol=1e-1, num_biconvex=1):
+                    verbose=False, gamma=.5, tol=1e-1, num_biconvex=1,
+                    search_tol=1e-1):
         # Remove these copies once the memory error is isolated.
         covars = np.copy(covars)
         means = np.copy(means)
@@ -42,7 +43,8 @@ class MetastableSwitchingLDSSolver(object):
         transmat = self.transmat_solve(stats)
         A_upds, Q_upds, b_upds = self.AQb_update(As, Qs, bs,
                 means, covars, stats, N_iter=N_iter, verbose=verbose,
-                gamma=gamma, tol=tol, num_biconvex=num_biconvex)
+                gamma=gamma, tol=tol, num_biconvex=num_biconvex,
+                search_tol=search_tol)
         return transmat, A_upds, Q_upds, b_upds
 
     def covars_update(self, means, stats):
@@ -107,7 +109,8 @@ class MetastableSwitchingLDSSolver(object):
         return means
 
     def AQb_update(self, As, Qs, bs, means, covars, stats, N_iter=400,
-                    verbose=False, gamma=.5, tol=1e-1, num_biconvex=2):
+                    verbose=False, gamma=.5, tol=1e-1, num_biconvex=2,
+                    search_tol=1e-1):
         Bs, Cs, Es, Ds, Fs = self.compute_aux_matrices(As, bs, covars, stats)
         self.print_aux_matrices(Bs, Cs, Es, Ds, Fs)
         A_upds, Q_upds, b_upds = [], [], []
@@ -117,7 +120,8 @@ class MetastableSwitchingLDSSolver(object):
             A, Q, mu = As[i], Qs[i], means[i]
             A_upd, Q_upd, b_upd = self.AQb_solve(A, Q, mu, B,
                     C, D, E, F, N_iter=N_iter, verbose=verbose,
-                    gamma=gamma, tol=tol, num_biconvex=num_biconvex)
+                    gamma=gamma, tol=tol, num_biconvex=num_biconvex,
+                    search_tol=search_tol)
             A_upds += [A_upd]
             Q_upds += [Q_upd]
             b_upds += [b_upd]
@@ -125,11 +129,12 @@ class MetastableSwitchingLDSSolver(object):
 
     def AQb_solve(self, A, Q, mu, B, C, D, E, F, interactive=False, disp=True,
             verbose=False, debug=False, N_iter=400,
-            gamma=.5, tol=1e-1, num_biconvex=2):
+            gamma=.5, tol=1e-1, num_biconvex=2, search_tol=1e-1):
         for i in range(num_biconvex):
             Q_upd = self.q_prob.solve(A, D, F, interactive=interactive,
                         disp=disp, debug=debug, verbose=verbose,
-                        gamma=gamma, tol=tol, N_iter=N_iter)
+                        gamma=gamma, tol=tol, N_iter=N_iter,
+                        search_tol=search_tol)
             if Q_upd != None:
                 Q = Q_upd
             else:
@@ -137,7 +142,7 @@ class MetastableSwitchingLDSSolver(object):
                     A, D, F)
             A_upd = self.a_prob.solve(B, C, D, E, Q, interactive=interactive,
                             disp=disp, debug=debug, N_iter=N_iter, 
-                            verbose=verbose, tol=tol)
+                            verbose=verbose, tol=tol, search_tol=search_tol)
             if A_upd != None:
                 A = A_upd
             else:

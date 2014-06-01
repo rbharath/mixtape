@@ -137,7 +137,8 @@ def test_alanine_dipeptide_mstep():
         n_frames = trajs[0].n_frames
         n_atoms = trajs[0].n_atoms
         n_features = n_atoms * 3
-        tol=2e-2
+        tol=1e-1
+        search_tol=1
 
         data_home = get_data_home()
         data_dir = join(data_home, TARGET_DIRECTORY_ALANINE)
@@ -173,8 +174,8 @@ def test_alanine_dipeptide_mstep():
 
         # Test AQB solver for MSLDS
         solver = MetastableSwitchingLDSSolver(n_components, n_features)
-        solver.do_mstep(As, Qs, bs, means, covars, rstats,
-                        verbose=True, tol=tol)
+        solver.do_mstep(As, Qs, bs, means, covars, rstats, tol=tol,
+                        verbose=True, search_tol=search_tol)
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()
@@ -192,7 +193,8 @@ def test_met_enkephalin_mstep():
         n_frames = trajs[0].n_frames
         n_atoms = trajs[0].n_atoms
         n_features = n_atoms * 3
-        print "n_features: ", n_features
+        tol=1e-1
+        search_tol=1
 
         data_home = get_data_home()
         data_dir = join(data_home, TARGET_DIRECTORY_MET)
@@ -229,8 +231,8 @@ def test_met_enkephalin_mstep():
 
         # Test AQB solver for MSLDS
         solver = MetastableSwitchingLDSSolver(n_components, n_features)
-        solver.do_mstep(As, Qs, bs, means, covars, rstats, N_iter=100,
-                            verbose=True)
+        solver.do_mstep(As, Qs, bs, means, covars, rstats, verbose=True,
+                        tol=tol, search_tol=search_tol)
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()

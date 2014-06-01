@@ -159,7 +159,7 @@ class Q_problem(object):
             return np.eye(dim)
 
         # Improving conditioning
-        delta=1e-2
+        delta=1e-6
         D = D + delta*np.eye(dim)
         Dinv = np.linalg.inv(D)
         D_ADA_T = D - np.dot(A, np.dot(D, A.T)) + delta*np.eye(dim)
@@ -177,11 +177,14 @@ class Q_problem(object):
         set_entries(X_init, D_ADA_T_cds, D_ADA_T)
         set_entries(X_init, c*I_1_cds, np.eye(dim))
         set_entries(X_init, c*I_2_cds, np.eye(dim))
-        Qinv_init = np.linalg.inv(D_ADA_T) 
+        #Qinv_init = np.linalg.inv(D_ADA_T) 
+        Qinv_init = (c**2) * np.linalg.inv(D_ADA_T) 
         set_entries(X_init, R_cds, Qinv_init)
 
         X_init = X_init + (1e-4)*np.eye(prob_dim)
         if min(np.linalg.eigh(X_init)[0]) < 0:
+            import pdb
+            pdb.set_trace()
             X_init == None
 
         g = GeneralSolver()
@@ -201,7 +204,7 @@ class Q_problem(object):
             R = R + (1e-3) * np.eye(dim)
             Q = np.linalg.inv(R)
             # Unscale answer
-            Q *= (1./scale)
+            #Q *= (1./scale)
             import pdb
             pdb.set_trace()
             return Q
