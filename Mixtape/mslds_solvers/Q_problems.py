@@ -162,7 +162,13 @@ class Q_problem(object):
         delta=1e-4
         D = D + delta*np.eye(dim)
         Dinv = np.linalg.inv(D)
-        D_ADA_T = D - np.dot(A, np.dot(D, A.T)) + delta*np.eye(dim)
+        D_ADA_T = D - np.dot(A, np.dot(D, A.T)) 
+
+        # Sometimes D_ADA_T has small negative eigenvalues
+        min_eig = np.amin(np.linalg.eigh(D_ADA_T)[0])
+        if min_eig < 0:
+            # assume min_eig is small
+            D_ADA_T += 2*np.abs(min_eig)*np.eye(dim)
         
 
         # Compute trace upper bound
@@ -204,8 +210,10 @@ class Q_problem(object):
             # Ensure stability
             R = R + (1e-3) * np.eye(dim)
             Q = np.linalg.inv(R)
-            # Unscale answer
-            #Q *= (1./scale)
+            # sometimes Q may have small negative eigenvalues
+            min_eig = np.amin(np.linalg.eigh(Q)[0])
+            if min_eig < 0:
+                Q += 2*np.abs(min_eig)*np.eye(dim)
             return Q
 
     def print_Q_test_case(test_file, A, D, F, dim):

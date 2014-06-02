@@ -68,13 +68,15 @@ class MetastableSwitchingLDSSolver(object):
                 min_eig = np.amin(np.linalg.eigh(covar)[0])
                 if min_eig < 0:
                     # Assume min_eig << 1
-                    covar_new = covar + (2 * abs(min_eig) *
+                    covar_new = covar + (2*abs(min_eig) *
                                             np.eye(self.n_features))
                     covar = covar_new
                 covar += (1e-5) * np.eye(self.n_features)
                 covars.append(covar)
             else:
-                covars.append(np.zeros(np.shape(obsmean)))
+                # Almost no evidence. Set to identity in absence of other
+                # info to prevent Cholesky factorization from crasing.
+                covars.append(np.eye(self.n_features))
         return covars
 
     def print_aux_matrices(self, Bs, Cs, Es, Ds, Fs):

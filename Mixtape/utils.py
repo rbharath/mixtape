@@ -28,6 +28,7 @@ from sklearn.utils import check_random_state
 from sklearn.externals.joblib import load, dump
 from numpy.linalg import norm
 import pickle
+from sklearn.mixture.gmm import log_multivariate_normal_density
 
 #-----------------------------------------------------------------------------
 # Code
@@ -111,7 +112,7 @@ def print_solve_test_case(name, matrices, dim, test_file):
     disp = (bcolors.FAIL + disp + bcolors.ENDC)
     test_num = np.random.randint(1000)
     print(disp)
-    with open(test_file, 'w') as f:
+    with open(test_file, 'a') as f:
         disp  = ""
         np.set_printoptions(threshold=np.nan)
         disp += "\ndef %s_test():\n" % name
@@ -137,18 +138,18 @@ def print_solve_test_case(name, matrices, dim, test_file):
     np.set_printoptions(threshold=1000)
 
 def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
-        trajs, out, g, sim_T):
+        trajs, out, g, sim_T, atom_indices):
     states = []
     for k in range(n_components):
         states.append([])
 
     # Presort the data into the metastable wells
     for k in range(n_components):
-        print "Presorting component %d" % k
+        print("Presorting component %d" % k)
         for i in range(len(trajs)):
-            print "\tIn trajectory %d" % i
+            print("\tIn trajectory %d" % i)
             traj = trajs[i]
-            Z = traj.xyz
+            Z = traj.xyz[:, atom_indices]
             Z = np.reshape(Z, (len(Z), n_features), order='F')
             logprob = log_multivariate_normal_density(Z,
                 np.array(g.means_), np.array(g.vars_), 
@@ -160,14 +161,14 @@ def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
     # Pick frame from original trajectories closest to current sample
     gen_traj = None
     for t in range(sim_T):
-        print "t = %d" % t
+        print("t = %d" % t)
         h = hidden_states[t]
         best_dist = np.inf
         best_frame = None
         for i in range(len(trajs)):
             if t > 0:
                 states[h][i].superpose(gen_traj, t-1)
-            Z = states[h][i].xyz
+            Z = states[h][i].xyz[:, atom_indices]
             Z = np.reshape(Z, (len(Z), n_features), order='F')
             cur_sample = sample_traj[t]
             cur_sample = np.tile(cur_sample, (len(Z), 1))

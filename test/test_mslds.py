@@ -13,13 +13,13 @@ from mixtape.datasets.met_enkephalin import fetch_met_enkephalin
 from mixtape.datasets.met_enkephalin import TARGET_DIRECTORY \
         as TARGET_DIRECTORY_MET
 from mixtape.datasets.src_kinase import fetch_src_kinase
+from mixtape.datasets.src_kinase import src_kinase_atom_indices
 from mixtape.datasets.src_kinase import TARGET_DIRECTORY \
         as TARGET_DIRECTORY_SRC
 from mixtape.datasets.src_kinase import TARGET_DIRECTORY \
         as TARGET_DIRECTORY_NANO
 from mixtape.datasets.base import get_data_home
 from os.path import join
-from sklearn.mixture.gmm import log_multivariate_normal_density
 from mixtape.utils import save_mslds_to_json_dict
 from mixtape.utils import gen_trajectory 
 
@@ -199,7 +199,7 @@ def test_doublewell():
         traceback.print_exc()
         pdb.post_mortem(tb)
 
-def test_alanine_dipeptide():
+def test_alanine():
     import pdb, traceback, sys
     warnings.filterwarnings("ignore", 
                     category=DeprecationWarning)
@@ -212,7 +212,9 @@ def test_alanine_dipeptide():
         n_atoms = trajs[0].n_atoms
         n_features = n_atoms * 3
         n_components = 2
+        atom_indices = range(n_atoms)
         sim_T = 100
+        gamma = .5
         out = "alanine_test"
 
         data_home = get_data_home()
@@ -230,11 +232,12 @@ def test_alanine_dipeptide():
         n_experiments = 1
         n_em_iter = 3
         tol = 2e-1
+        search_tol = 1.
         if LEARN:
             model = MetastableSwitchingLDS(n_components, 
                 n_features, n_experiments=n_experiments, 
                 n_em_iter=n_em_iter) 
-            model.fit(data, gamma=1., tol=tol, verbose=False)
+            model.fit(data, gamma=gamma, tol=tol, verbose=False)
             mslds_score = model.score(data)
             print("MSLDS Log-Likelihood = %f" %  mslds_score)
 
@@ -254,14 +257,14 @@ def test_alanine_dipeptide():
         print
 
         gen_trajectory(sample_traj, hidden_states, n_components, 
-                        n_features, trajs, out, g, sim_T)
+                        n_features, trajs, out, g, sim_T, atom_indices)
 
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()
         pdb.post_mortem(tb)
 
-def test_met_enkephalin():
+def test_met_enk():
     import pdb, traceback, sys
     warnings.filterwarnings("ignore", 
                     category=DeprecationWarning)
@@ -273,6 +276,7 @@ def test_met_enkephalin():
         n_seq = len(trajs)
         n_frames = trajs[0].n_frames
         n_atoms = trajs[0].n_atoms
+        atom_indices = range(n_atoms)
         n_features = n_atoms * 3
         n_components = 2
         sim_T = 100
@@ -294,6 +298,7 @@ def test_met_enkephalin():
         n_experiments = 1
         n_em_iter = 3
         tol = 2e-1
+        search_tol = 1.
         if LEARN:
             model = MetastableSwitchingLDS(n_components, 
                 n_features, n_experiments=n_experiments, 
@@ -302,6 +307,8 @@ def test_met_enkephalin():
             mslds_score = model.score(data)
             print("MSLDS Log-Likelihood = %f" %  mslds_score)
 
+            # Save the learned model
+            save_mslds_to_json_dict(model, 'met_enk.json')
             # Generate a trajectory from learned model.
             sample_traj, hidden_states = model.sample(sim_T)
         else:
@@ -316,7 +323,7 @@ def test_met_enkephalin():
         print
 
         gen_trajectory(sample_traj, hidden_states, n_components, 
-                        n_features, trajs, out, g, sim_T)
+                        n_features, trajs, out, g, sim_T, atom_indices)
 
     except:
         type, value, tb = sys.exc_info()
@@ -330,10 +337,11 @@ def test_src_kinase():
     LEARN = True
     try:
         b = fetch_src_kinase()
+        atom_indices = src_kinase_atom_indices()
         trajs = b.trajectories
         n_seq = len(trajs)
         n_frames = trajs[0].n_frames
-        n_atoms = trajs[0].n_atoms
+        n_atoms = len(atom_indices) 
         n_features = n_atoms * 3
         n_components = 2
         sim_T = 100
@@ -345,8 +353,8 @@ def test_src_kinase():
         # Superpose m
         data = []
         for traj in trajs:
-            traj.superpose(top)
-            Z = traj.xyz
+            traj.superpose(top, atom_indices=atom_indices)
+            Z = traj.xyz[:, atom_indices]
             Z = np.reshape(Z, (len(Z), n_features), order='F')
             data.append(Z)
         import pdb

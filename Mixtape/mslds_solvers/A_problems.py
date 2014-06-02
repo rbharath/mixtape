@@ -194,11 +194,10 @@ class A_problem(object):
         set_entries(X_init, A_cds, const*np.eye(self.dim))
         set_entries(X_init, A_T_cds, const*np.eye(self.dim))
         set_entries(X_init, Dinv_cds, Dinv)
-        X_init = X_init + (1e-1)*np.eye(prob_dim)
-        if min(np.linalg.eigh(X_init)[0]) < 0:
-            import pdb
-            pdb.set_trace()
-            X_init = None
+        min_eig = np.amin(np.linalg.eigh(X_init)[0])
+        if min_eig < 0:
+            # X_init may have small negative eigenvalues
+            X_init += 2*np.abs(min_eig)*np.eye(prob_dim)
 
         def obj(X):
             return self.objective(X, C, B, E, Qinv)
