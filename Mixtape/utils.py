@@ -29,6 +29,7 @@ from sklearn.externals.joblib import load, dump
 from numpy.linalg import norm
 import pickle
 from sklearn.mixture.gmm import log_multivariate_normal_density
+from numpy.random import multivariate_normal
 
 #-----------------------------------------------------------------------------
 # Code
@@ -137,6 +138,14 @@ def print_solve_test_case(name, matrices, dim, test_file):
         f.write(disp)
     np.set_printoptions(threshold=1000)
 
+def sample_hmm(n_samples, n_features, hidden_states, means, covars):
+    obs = np.zeros((n_samples, n_features))
+    for t in range(n_samples):
+        s = hidden_states[t]
+        val = multivariate_normal(means[s], covars[s])
+        obs[t] = val
+    return obs
+
 def project_trajectory(sample_traj, means, atom_index_per_mean):
     sim_T = len(sample_traj)
     red_dim = len(means)
@@ -147,15 +156,22 @@ def project_trajectory(sample_traj, means, atom_index_per_mean):
             projected[t,i] = sample_traj[t][ind] - means[i][ind]
     return projected
 
-def plot_coords(sample_traj, means, atom_indices_per_mean):
+def plot_coords(sample_traj, means, atom_indices_per_mean, scatter=False,
+                xlabel="Order Parameter 1", ylabel="Order Parameter 2"):
     import matplotlib.pyplot as plt
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
     projected = project_trajectory(sample_traj, means,
                     atom_indices_per_mean)
-    plt.plot(projected[:, 0], projected[:, 1])
-    plt.xlabel("Order Parameter 1")
-    plt.ylabel("Order Parameter 2")
+    if scatter:
+        ax.scatter(projected[:, 0], projected[:, 1])
+    else:
+        ax.plot(projected[:, 0], projected[:, 1])
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     plt.show()
     return projected
+
 
 def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
         trajs, out, g, sim_T, atom_indices):

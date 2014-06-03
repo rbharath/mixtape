@@ -160,8 +160,31 @@ class MetastableSwitchingLDS(object):
 
         return obs, hidden_state
 
-    def sample_fixed(self, n_samples, hidden_state):
-        pass
+    def sample_fixed(self, n_samples, hidden, init_obs=None):
+        """Sample a trajectory from model distribution
+        """
+        # Allocate Memory
+        obs = np.zeros((n_samples, self.n_features))
+
+        if init_obs is None:
+            obs[0] = self.means_[hidden]
+        else:
+            obs[0] = init_obs
+
+        # Perform time updates
+        import pdb, traceback, sys
+        try:
+            for t in range(n_samples - 1):
+                A = self.As_[hidden]
+                b = self.bs_[hidden]
+                Q = self.Qs_[hidden]
+                obs[t + 1] = multivariate_normal(np.dot(A, obs[t]) + b, Q)
+        except:
+                type, value, tb = sys.exc_info()
+                traceback.print_exc()
+                pdb.post_mortem(tb)
+
+        return obs
 
     def score(self, data):
         """Log-likelihood of sequences under the model
