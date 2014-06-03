@@ -62,7 +62,6 @@ class A_problem(object):
         set_entries(grad, A_T_cds, gradA_T)
         return grad
 
-
     def coords(self):
         dim = self.dim
         """
@@ -119,10 +118,10 @@ class A_problem(object):
 
         return As, bs, Cs, ds, Fs, gradFs, Gs, gradGs
 
-    def solve(self, B, C, D, E, Q, interactive=False,
-            disp=True, verbose=False, debug=False,
-            N_iter=400, search_tol=1e-1, tol=1e-1, min_step_size=1e-6,
-            methods=['frank_wolfe']):
+    def solve(self, B, C, D, E, Q, interactive=False, disp=True,
+        verbose=False, debug=False, N_iter=500, N_iter_short=20,
+        N_iter_long=40, search_tol=1e-1, tol=1e-1, min_step_size=1e-6,
+        methods=['frank_wolfe']):
         """
         Solves A optimization.
 
@@ -187,17 +186,20 @@ class A_problem(object):
         # Construct init matrix
         upper_norm = np.linalg.norm(D_Q, 2)
         lower_norm = np.linalg.norm(D, 2)
-        const = np.sqrt(upper_norm/lower_norm)
+        norm_estimate = np.sqrt(upper_norm/lower_norm)
 
-        X_init = np.zeros((prob_dim, prob_dim))
-        set_entries(X_init, D_Q_cds, D_Q)
-        set_entries(X_init, A_cds, const*np.eye(self.dim))
-        set_entries(X_init, A_T_cds, const*np.eye(self.dim))
-        set_entries(X_init, Dinv_cds, Dinv)
-        min_eig = np.amin(np.linalg.eigh(X_init)[0])
-        if min_eig < 0:
-            # X_init may have small negative eigenvalues
-            X_init += 2*np.abs(min_eig)*np.eye(prob_dim)
+        if False:
+            X_init = np.zeros((prob_dim, prob_dim))
+            set_entries(X_init, D_Q_cds, D_Q)
+            set_entries(X_init, A_cds, norm_estimate*np.eye(self.dim))
+            set_entries(X_init, A_T_cds, norm_estimate*np.eye(self.dim))
+            set_entries(X_init, Dinv_cds, Dinv)
+            min_eig = np.amin(np.linalg.eigh(X_init)[0])
+            if min_eig < 0:
+                # X_init may have small negative eigenvalues
+                X_init += 2*np.abs(min_eig)*np.eye(prob_dim)
+        else:
+            X_init = None
 
         def obj(X):
             return self.objective(X, C, B, E, Qinv)
@@ -213,6 +215,11 @@ class A_problem(object):
                 methods=methods, X_init=X_init)
         if succeed:
             A = get_entries(X, A_cds)
+            # Sometimes A's norm is too big due to numerical issues.
+            # Scale down to preserve stability in this case
+            norm = np.linalg.norm(A, 2)
+            if norm >= 1:
+                A *= (norm_estimate/norm)
             return A
 
     def print_test_case(self, test_file, B, C, D, E, Q):

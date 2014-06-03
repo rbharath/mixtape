@@ -53,12 +53,12 @@ class MetastableSwitchingLDS(object):
             n_hotstart_sequences=10, params='tmcqab', n_em_iter=10,
             n_hotstart = 5, backend='FirstOpt'):
 
-        self.n_states = n_states
-        self.n_experiments = n_experiments
-        self.n_features = n_features
-        self.n_hotstart = n_hotstart
-        self.n_hotstart_sequences = n_hotstart_sequences
-        self.n_em_iter = n_em_iter
+        self.n_states = int(n_states)
+        self.n_experiments = int(n_experiments)
+        self.n_features = int(n_features)
+        self.n_hotstart = int(n_hotstart)
+        self.n_hotstart_sequences = int(n_hotstart_sequences)
+        self.n_em_iter = int(n_em_iter)
         self.params = params
         self.eps = .2
         self._As_ = None
@@ -139,8 +139,7 @@ class MetastableSwitchingLDS(object):
             hidden_state[0] = init_state
 
         if init_obs is None:
-            obs[0] = multivariate_normal(self.means_[hidden_state[0]],
-                                         self.covars_[hidden_state[0]])
+            obs[0] = self.means_[hidden_state[0]]
         else:
             obs[0] = init_obs
 
@@ -160,6 +159,9 @@ class MetastableSwitchingLDS(object):
                 pdb.post_mortem(tb)
 
         return obs, hidden_state
+
+    def sample_fixed(self, n_samples, hidden_state):
+        pass
 
     def score(self, data):
         """Log-likelihood of sequences under the model
@@ -202,7 +204,7 @@ class MetastableSwitchingLDS(object):
         print(display_string)
 
     def fit(self, data, gamma=.5, print_status=False, tol=1e-1,
-                search_tol=1e-1, verbose=False, N_iter=400):
+                search_tol=1e-1, verbose=False, N_iter=500):
         """Estimate model parameters.
         """
         self._init(data)
@@ -217,19 +219,22 @@ class MetastableSwitchingLDS(object):
             self.print_parameters(phase="HMM Pretraining Step "
                     + str(i), logprob=curr_logprob, 
                     print_status=print_status)
-        # Move this inwards later for neatness
+
+        # Initialize, As, Qs, bs to reasonable values. 
         for i in range(self.n_states):
             D = np.copy(self.covars_[i])
             Q = gamma * D
             self.Qs_[i] = Q
         As = []
         for i in range(self.n_states):
-            A = .9 * np.eye(self.n_features)
+            A = (1-gamma) * np.eye(self.n_features)
             As.append(A)
         self.As_ = As
         bs = []
         for i in range(self.n_states):
-            b = self.means_[i]
+            A = self.As_[i]
+            mu = self.means_[i]
+            b = mu - np.dot(A, mu) 
             bs.append(b)
         self.bs_ = bs
 

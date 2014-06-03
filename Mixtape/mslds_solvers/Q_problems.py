@@ -192,7 +192,7 @@ class Q_problem(object):
         if min(np.linalg.eigh(X_init)[0]) < 0:
             import pdb
             pdb.set_trace()
-            X_init == None
+            X_init = None
 
         g = GeneralSolver()
         def obj(X):
@@ -216,6 +216,6 @@ class Q_problem(object):
                 Q += 2*np.abs(min_eig)*np.eye(dim)
             return Q
 
-    def print_Q_test_case(test_file, A, D, F, dim):
+    def print_test_case(self, test_file, A, D, F):
         matrices = [(A, "A"), (D, "D"), (F, "F")]
         print_solve_test_case("Q", matrices, self.dim, test_file)

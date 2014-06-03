@@ -31,7 +31,7 @@ class MetastableSwitchingLDSSolver(object):
         print "Done with hmm-mstep"
         return transmat, means, covars
 
-    def do_mstep(self, As, Qs, bs, means, covars, stats, N_iter=400,
+    def do_mstep(self, As, Qs, bs, means, covars, stats, N_iter=500,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=1,
                     search_tol=1e-1):
         # Remove these copies once the memory error is isolated.
@@ -110,7 +110,7 @@ class MetastableSwitchingLDSSolver(object):
         means = (stats['obs']) / (stats['post'][:, np.newaxis])
         return means
 
-    def AQb_update(self, As, Qs, bs, means, covars, stats, N_iter=400,
+    def AQb_update(self, As, Qs, bs, means, covars, stats, N_iter=500,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=2,
                     search_tol=1e-1):
         Bs, Cs, Es, Ds, Fs = self.compute_aux_matrices(As, bs, covars, stats)
@@ -130,7 +130,7 @@ class MetastableSwitchingLDSSolver(object):
         return A_upds, Q_upds, b_upds
 
     def AQb_solve(self, A, Q, mu, B, C, D, E, F, interactive=False, disp=True,
-            verbose=False, debug=False, N_iter=400,
+            verbose=False, debug=False, N_iter=500,
             gamma=.5, tol=1e-1, num_biconvex=2, search_tol=1e-1):
         for i in range(num_biconvex):
             Q_upd = self.q_prob.solve(A, D, F, interactive=interactive,

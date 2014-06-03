@@ -21,7 +21,7 @@ from mixtape.datasets.src_kinase import TARGET_DIRECTORY \
 from mixtape.datasets.base import get_data_home
 from os.path import join
 from mixtape.utils import save_mslds_to_json_dict
-from mixtape.utils import gen_trajectory 
+from mixtape.utils import gen_trajectory, project_trajectory
 
 def test_plusmin():
     import pdb, traceback, sys
@@ -72,14 +72,12 @@ def test_plusmin():
         plt.plot(range(T), sim_xs[0], label='Sampled Observations')
         plt.legend()
         plt.show()
-        import pdb
-        pdb.set_trace()
     except:
         type, value, tb = sys.exc_info()
         traceback.print_exc()
         pdb.post_mortem(tb)
 
-def test_muller_potential():
+def test_muller():
     import pdb, traceback, sys
     try:
         # Set constants
@@ -161,7 +159,7 @@ def test_doublewell():
         n_em_iter = 3
         n_experiments = 1
         tol=1e-1
-        gamma = .5
+        gamma = .2
 
         data = load_doublewell(random_state=0)['trajectories']
         T = len(data[0])
@@ -214,7 +212,7 @@ def test_alanine():
         n_components = 2
         atom_indices = range(n_atoms)
         sim_T = 100
-        gamma = .5
+        gamma = .2
         out = "alanine_test"
 
         data_home = get_data_home()
@@ -231,7 +229,7 @@ def test_alanine():
         # Fit MSLDS model 
         n_experiments = 1
         n_em_iter = 3
-        tol = 2e-1
+        tol = 3e-1
         search_tol = 1.
         if LEARN:
             model = MetastableSwitchingLDS(n_components, 
@@ -258,6 +256,11 @@ def test_alanine():
 
         gen_trajectory(sample_traj, hidden_states, n_components, 
                         n_features, trajs, out, g, sim_T, atom_indices)
+        projected = project_trajectory(sample_traj, model.means_)
+        import pickle
+        pickle.dump(projected, open("projected.p", "w"))
+        pickle.dump(sample_traj, open("sample_traj.p", "w"))
+        pickle.dump(hidden_states, open("hidden_states.p", "w"))
 
     except:
         type, value, tb = sys.exc_info()

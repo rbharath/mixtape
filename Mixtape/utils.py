@@ -137,6 +137,26 @@ def print_solve_test_case(name, matrices, dim, test_file):
         f.write(disp)
     np.set_printoptions(threshold=1000)
 
+def project_trajectory(sample_traj, means, atom_index_per_mean):
+    sim_T = len(sample_traj)
+    red_dim = len(means)
+    projected = np.zeros((sim_T, red_dim))
+    for t in range(sim_T):
+        for i in range(red_dim):
+            ind = atom_index_per_mean[i]
+            projected[t,i] = sample_traj[t][ind] - means[i][ind]
+    return projected
+
+def plot_coords(sample_traj, means, atom_indices_per_mean):
+    import matplotlib.pyplot as plt
+    projected = project_trajectory(sample_traj, means,
+                    atom_indices_per_mean)
+    plt.plot(projected[:, 0], projected[:, 1])
+    plt.xlabel("Order Parameter 1")
+    plt.ylabel("Order Parameter 2")
+    plt.show()
+    return projected
+
 def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
         trajs, out, g, sim_T, atom_indices):
     states = []
