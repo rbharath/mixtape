@@ -10,31 +10,38 @@ def test_log_det():
     N_rand = 10
     tol = 1e-1
     eps = 1e-4
-    for dim in dims:
-        q_prob = Q_problem(dim)
-        (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = q_prob.coords()
-        prob_dim = q_prob.scale * dim
+    import pdb, traceback, sys
+    try:
+        for dim in dims:
+            q_prob = Q_problem(dim)
+            (D_ADA_T_cds, I_1_cds, I_2_cds, R_cds) = q_prob.coords()
+            prob_dim = q_prob.scale * dim
 
-        # Generate initial data
-        B = np.random.rand(dim, dim)
-        def obj(X):
-            return q_prob.objective(X, B)
-        def grad_obj(X):
-            return q_prob.grad_objective(X, B)
-        for i in range(N_rand):
-            X = np.random.rand(prob_dim, prob_dim)
-            R = get_entries(X, R_cds)
-            if (np.linalg.det(R) <= 0):
-                continue
-            val = obj(X)
-            grad = grad_obj(X)
-            num_grad = numerical_derivative(obj, X, eps)
-            diff = np.sum(np.abs(grad - num_grad))
-            if diff >= tol:
-                print "grad:\n", grad
-                print "num_grad:\n", num_grad
-                print "diff: ", diff
-            assert diff < tol
+            # Generate initial data
+            F = np.random.rand(dim, dim)
+            G = np.random.rand()
+            def obj(X):
+                return q_prob.objective(X, F, G)
+            def grad_obj(X):
+                return q_prob.grad_objective(X, F, G)
+            for i in range(N_rand):
+                X = np.random.rand(prob_dim, prob_dim)
+                R = get_entries(X, R_cds)
+                if (np.linalg.det(R) <= 0):
+                    continue
+                val = obj(X)
+                grad = grad_obj(X)
+                num_grad = numerical_derivative(obj, X, eps)
+                diff = np.sum(np.abs(grad - num_grad))
+                if diff >= tol:
+                    print "grad:\n", grad
+                    print "num_grad:\n", num_grad
+                    print "diff: ", diff
+                assert diff < tol
+    except:
+        type, value, tb = sys.exc_info()
+        traceback.print_exc()
+        pdb.post_mortem(tb)
 
 def test_Q_constraints():
     dims = [1, 2]
@@ -92,10 +99,11 @@ def test_Q_solve_1():
             D = np.eye(dim) 
             F = np.eye(dim)
             A = 0.5*(1./dim) * np.eye(dim)
+            G = 1.
 
             # Call solver
             t_start = time.time()
-            Q = q_prob.solve(A, D, F, tol=tol, search_tol=search_tol,
+            Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol,
                                 gamma=gamma)
             t_end = time.time()
 
@@ -139,10 +147,11 @@ def test_Q_solve_2():
             D = .0204 * np.eye(dim)
             F = 25.47 * np.eye(dim)
             A = np.zeros(dim)
+            G = 1.
 
             # Call solver
             t_start = time.time()
-            Q = q_prob.solve(A, D, F, tol=tol, search_tol=search_tol,
+            Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol,
                                 gamma=gamma)
             t_end = time.time()
 
@@ -188,10 +197,11 @@ def test_Q_solve_3():
                           [1.58163533, 2.58977211]])
             A = np.zeros((dim, dim))
             c = np.sqrt(1/gamma)
+            G = 1.
 
             # Call solver
             t_start = time.time()
-            Q = q_prob.solve(A, D, F, tol=tol, search_tol=search_tol,
+            Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol,
                                 gamma=gamma)
             t_end = time.time()
 
@@ -213,10 +223,11 @@ def test_Q_solve_plusmin():
     A = np.array([[.0]])
     D = np.array([[.0204]])
     F = np.array([[25.47]])
+    G = 1.
 
     # Call solver
     t_start = time.time()
-    Q = q_prob.solve(A, D, F)
+    Q = q_prob.solve(A, D, F, G)
     t_end = time.time()
 
     print "D:\n", D
@@ -236,10 +247,11 @@ def test_Q_solve_muller():
                    [0.00196009, 0.00322879]])
     F = np.array([[2.62197238, 1.58163533],
                   [1.58163533, 2.58977211]])
+    G = 1.
 
     # Call solver
     t_start = time.time()
-    Q = q_prob.solve(A, D, F)
+    Q = q_prob.solve(A, D, F, G)
     t_end = time.time()
 
     print "D:\n", D
@@ -259,10 +271,11 @@ def test_Q_solve_muller_2():
                   [ 0.00152437,  0.00291518]])
     F = np.array([[ 2.72226628,  1.60237858],
                   [ 1.60237858,  3.0191094 ]])
+    G = 1.
 
     # Call solver
     t_start = time.time()
-    Q = q_prob.solve(A, D, F)
+    Q = q_prob.solve(A, D, F, G)
     t_end = time.time()
 
     print "D:\n", D
@@ -283,10 +296,11 @@ def test_Q_solve_muller_3():
                 [ 0.00027678,  0.0092519 ]], dtype=float32))
     F = (array([[ 5.79813337, -2.13557243],
                 [-2.13554192, -6.50420761]], dtype=float32))
+    G = 1.
 
     # Call solver
     t_start = time.time()
-    Q = q_prob.solve(A, D, F)
+    Q = q_prob.solve(A, D, F, G)
     t_end = time.time()
 
     print "D:\n", D

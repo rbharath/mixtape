@@ -6,6 +6,7 @@ from mixtape.mslds_solvers.sparse_sdp.constraints import many_batch_equals
 from mixtape.mslds_solvers.sparse_sdp.constraints import grad_many_batch_equals
 from mixtape.mslds_solvers.sparse_sdp.general_sdp_solver \
     import GeneralSolver
+from mixtape.utils import bcolors
 
 class Q_problem(object):
 
@@ -14,10 +15,10 @@ class Q_problem(object):
         self.scale = 2
         pass
 
-    # - log det R + Tr(RB)
-    def objective(self, X, B):
+    # - G log det R + Tr(RF)
+    def objective(self, X, F, G):
         """
-        minimize -log det R + Tr(RB)
+        minimize -G log det R + Tr(RF)
               -----------
              |D-ADA.T  cI |
         X =  |   cI     R |
@@ -30,16 +31,16 @@ class Q_problem(object):
         try:
             L = np.linalg.cholesky(R)
             log_det = 2*np.sum(np.log(np.diag(L)))
-            val = -log_det + np.trace(np.dot(R, B))
+            val = -G * log_det + np.trace(np.dot(R, F))
         except (FloatingPointError, LinAlgError) as e:
             val = np.inf
         return val 
 
-    # grad - log det R = -R^{-1} = -Q (see Boyd and Vandenberge, A4.1)
-    # grad tr(RB) = B^T
-    def grad_objective(self, X, B):
+    # grad - Glog det R = - GR^{-1}.T = - GQ.T (see Boyd and Vandenberge, A4.1)
+    # grad tr(RF) = F^T
+    def grad_objective(self, X, F, G):
         """
-        minimize -log det R + Tr(RB)
+        minimize -G log det R + Tr(RF)
               -----------
              |D-ADA.T  cI |
         X =  |   cI     R |
@@ -53,7 +54,7 @@ class Q_problem(object):
         # Need to avoid ill-conditioning of R1, R2
         R = R + (1e-5) * np.eye(self.dim)
         Q = np.linalg.inv(R)
-        gradR = -Q.T + B.T
+        gradR = -G * Q.T + F.T
         set_entries(grad, R_cds, gradR)
         return grad
 
@@ -123,15 +124,24 @@ class Q_problem(object):
         """
         return As, bs, Cs, ds, Fs, gradFs, Gs, gradGs
 
+    def print_fail_banner(self):
+        display_string = """
+        ###############
+        NOT ENOUGH DATA
+        ###############
+        """
+        display_string = bcolors.FAIL + display_string + bcolors.ENDC
+        print display_string
 
-    def solve(self, A, D, F, interactive=False, disp=True,
+    def solve(self, A, D, F, G, interactive=False, disp=True,
             verbose=False, debug=False, Rs=[10, 100, 1000], N_iter=400,
+            N_iter_short=20, N_iter_long=40,
             gamma=.5, tol=1e-1, search_tol=1e-1, min_step_size=1e-6,
             methods=['frank_wolfe']):
         """
         Solves Q optimization.
 
-        min_Q -log det R + Tr(RF)
+        min_Q -G log det R + Tr(RF)
               -----------
              |D-ADA.T  cI |
         X =  |   cI     R |
@@ -153,10 +163,11 @@ class Q_problem(object):
         D *= scale
 
         # Scale down objective matrices
-        scale_factor = np.linalg.norm(F, 2)
+        scale_factor = max(np.linalg.norm(F, 2), np.abs(G))
         if scale_factor < 1e-6:
             # F can be zero if there are no observations for this state 
-            return np.eye(dim)
+            self.print_fail_banner()
+            return None 
 
         # Improving conditioning
         delta=1e-4
@@ -187,21 +198,20 @@ class Q_problem(object):
         #Qinv_init = np.linalg.inv(D_ADA_T) 
         Qinv_init = (c**2) * np.linalg.inv(D_ADA_T) 
         set_entries(X_init, R_cds, Qinv_init)
-
-        X_init = X_init + (1e-4)*np.eye(prob_dim)
-        if min(np.linalg.eigh(X_init)[0]) < 0:
-            import pdb
-            pdb.set_trace()
-            X_init = None
+        min_eig = np.amin(np.linalg.eigh(X_init)[0])
+        if min_eig < 0:
+            # X_init may have small negative eigenvalues
+            X_init += 2*np.abs(min_eig)*np.eye(prob_dim)
 
         g = GeneralSolver()
         def obj(X):
-            return (1./scale_factor) * self.objective(X, F)
+            return (1./scale_factor) * self.objective(X, F, G)
         def grad_obj(X):
-            return (1./scale_factor) * self.grad_objective(X, F)
+            return (1./scale_factor) * self.grad_objective(X, F, G)
         g.save_constraints(prob_dim, obj, grad_obj, As, bs, Cs, ds,
                 Fs, gradFs, Gs, gradGs)
         (U, X, succeed) = g.solve(N_iter, tol, search_tol,
+            N_iter_short=N_iter_short, N_iter_long=N_iter_long,
             interactive=interactive, disp=disp, verbose=verbose, 
             debug=debug, Rs=Rs, min_step_size=min_step_size,
             methods=methods, X_init=X_init)

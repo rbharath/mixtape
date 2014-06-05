@@ -32,6 +32,7 @@ class MetastableSwitchingLDSSolver(object):
         return transmat, means, covars
 
     def do_mstep(self, As, Qs, bs, means, covars, stats, N_iter=500,
+                    N_iter_short=20, N_iter_long=40,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=1,
                     search_tol=1e-1):
         # Remove these copies once the memory error is isolated.
@@ -42,9 +43,10 @@ class MetastableSwitchingLDSSolver(object):
         bs = np.copy(bs)
         transmat = self.transmat_solve(stats)
         A_upds, Q_upds, b_upds = self.AQb_update(As, Qs, bs,
-                means, covars, stats, N_iter=N_iter, verbose=verbose,
-                gamma=gamma, tol=tol, num_biconvex=num_biconvex,
-                search_tol=search_tol)
+                means, covars, stats, N_iter=N_iter,
+                N_iter_short=N_iter_short, N_iter_long=N_iter_long,
+                verbose=verbose, gamma=gamma, tol=tol,
+                num_biconvex=num_biconvex, search_tol=search_tol)
         return transmat, A_upds, Q_upds, b_upds
 
     def covars_update(self, means, stats):
@@ -79,7 +81,7 @@ class MetastableSwitchingLDSSolver(object):
                 covars.append(np.eye(self.n_features))
         return covars
 
-    def print_aux_matrices(self, Bs, Cs, Es, Ds, Fs):
+    def print_aux_matrices(self, Bs, Cs, Es, Ds, Fs, gs):
         # TODO: make choice of aux output automatic
         np.set_printoptions(threshold=np.nan)
         with open("aux_matrices.txt", 'w') as f:
@@ -89,7 +91,6 @@ class MetastableSwitchingLDSSolver(object):
             ++++++++++++++++++++++++++
             """
             for i in range(self.n_components):
-                B, C, D, E, F = Bs[i], Cs[i], Ds[i], Es[i], Fs[i]
                 display_string += ("""
                 --------
                 State %d
@@ -99,7 +100,8 @@ class MetastableSwitchingLDSSolver(object):
                                  + ("\nCs[%d]:\n"%i + str(Cs[i]) + "\n")
                                  + ("\nDs[%d]:\n"%i + str(Ds[i]) + "\n")
                                  + ("\nEs[%d]:\n"%i + str(Es[i]) + "\n")
-                                 + ("\nFs[%d]:\n"%i + str(Fs[i]) + "\n"))
+                                 + ("\nFs[%d]:\n"%i + str(Fs[i]) + "\n")
+                                 + ("\ngs[%d]:\n"%i + str(gs[i]) + "\n"))
             display_string = (bcolors.WARNING + display_string
                                 + bcolors.ENDC)
             f.write(display_string)
@@ -111,17 +113,20 @@ class MetastableSwitchingLDSSolver(object):
         return means
 
     def AQb_update(self, As, Qs, bs, means, covars, stats, N_iter=500,
+                    N_iter_short=20, N_iter_long=40,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=2,
                     search_tol=1e-1):
-        Bs, Cs, Es, Ds, Fs = self.compute_aux_matrices(As, bs, covars, stats)
-        self.print_aux_matrices(Bs, Cs, Es, Ds, Fs)
+        Bs, Cs, Es, Ds, Fs, gs = self.compute_aux_matrices(As, bs, 
+                                                        covars, stats)
+        self.print_aux_matrices(Bs, Cs, Es, Ds, Fs, gs)
         A_upds, Q_upds, b_upds = [], [], []
 
         for i in range(self.n_components):
-            B, C, D, E, F = Bs[i], Cs[i], Ds[i], Es[i], Fs[i]
+            B, C, D, E, F, g = Bs[i], Cs[i], Ds[i], Es[i], Fs[i], gs[i]
             A, Q, mu = As[i], Qs[i], means[i]
             A_upd, Q_upd, b_upd = self.AQb_solve(A, Q, mu, B,
-                    C, D, E, F, N_iter=N_iter, verbose=verbose,
+                    C, D, E, F, g, i, N_iter=N_iter, N_iter_short=N_iter_short,
+                    N_iter_long=N_iter_long, verbose=verbose,
                     gamma=gamma, tol=tol, num_biconvex=num_biconvex,
                     search_tol=search_tol)
             A_upds += [A_upd]
@@ -129,22 +134,36 @@ class MetastableSwitchingLDSSolver(object):
             b_upds += [b_upd]
         return A_upds, Q_upds, b_upds
 
-    def AQb_solve(self, A, Q, mu, B, C, D, E, F, interactive=False, disp=True,
-            verbose=False, debug=False, N_iter=500,
-            gamma=.5, tol=1e-1, num_biconvex=2, search_tol=1e-1):
+    def print_banner(self, Type):
+        display_string = """
+        ##################
+        %s SOLVE STARTED
+        ##################
+        """%Type
+        display_string = bcolors.HEADER + display_string + bcolors.ENDC
+        print display_string
+
+    def AQb_solve(self, A, Q, mu, B, C, D, E, F, g, iteration,
+        interactive=False, disp=True, verbose=False, debug=False, N_iter=500,
+        N_iter_short=20, N_iter_long=40, gamma=.5, tol=1e-1, num_biconvex=2,
+        search_tol=1e-1):
         for i in range(num_biconvex):
-            Q_upd = self.q_prob.solve(A, D, F, interactive=interactive,
+            self.print_banner("Q-%d"%iteration)
+            Q_upd = self.q_prob.solve(A, D, F, g, interactive=interactive,
                         disp=disp, debug=debug, verbose=verbose,
                         gamma=gamma, tol=tol, N_iter=N_iter,
+                        N_iter_short=N_iter_short, N_iter_long=N_iter_long,
                         search_tol=search_tol)
             if Q_upd != None:
                 Q = Q_upd
             else:
                 self.q_prob.print_test_case("autogen_Q_tests.py", 
                     A, D, F)
-            A_upd = self.a_prob.solve(B, C, D, E, Q, interactive=interactive,
-                            disp=disp, debug=debug, N_iter=N_iter, 
-                            verbose=verbose, tol=tol, search_tol=search_tol)
+            self.print_banner("A-%d"%iteration)
+            A_upd = self.a_prob.solve(B, C, D, E, Q, A_init=A,
+                interactive=interactive, disp=disp, debug=debug, N_iter=N_iter,
+                N_iter_short=N_iter_short, N_iter_long=N_iter_long,
+                verbose=verbose, tol=tol, search_tol=search_tol)
             if A_upd != None:
                 A = A_upd
             else:
@@ -175,7 +194,7 @@ class MetastableSwitchingLDSSolver(object):
     def compute_aux_matrices(self, As, bs, covars, stats):
         n_components = self.n_components
         n_features = self.n_features
-        Bs, Cs, Es, Ds, Fs = [], [], [], [], []
+        Bs, Cs, Es, Ds, Fs, gs = [], [], [], [], [], []
         for i in range(n_components):
             A, b, covar = As[i], bs[i], covars[i]
             b = np.reshape(b, (n_features, 1))
@@ -197,10 +216,12 @@ class MetastableSwitchingLDSSolver(object):
                    + np.dot(b, np.dot(np.reshape(stats['obs[:-1]'][i],
                                               (n_features, 1)).T, A.T))
                    + stats['post[1:]'][i] * np.dot(b, b.T)))
+            g = stats['post'][i]
             Bs += [B]
             Cs += [C]
             Es += [E]
             Ds += [D]
             Fs += [F]
-        return Bs, Cs, Es, Ds, Fs
+            gs += [g]
+        return Bs, Cs, Es, Ds, Fs, gs
 

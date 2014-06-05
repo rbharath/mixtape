@@ -5,6 +5,7 @@ from mixtape.mslds_solvers.sparse_sdp.constraints import many_batch_equals
 from mixtape.mslds_solvers.sparse_sdp.constraints import grad_many_batch_equals
 from mixtape.mslds_solvers.sparse_sdp.general_sdp_solver \
     import GeneralSolver
+from mixtape.utils import bcolors
 
 class A_problem(object):
 
@@ -118,7 +119,16 @@ class A_problem(object):
 
         return As, bs, Cs, ds, Fs, gradFs, Gs, gradGs
 
-    def solve(self, B, C, D, E, Q, interactive=False, disp=True,
+    def print_fail_banner(self):
+        display_string = """
+        ###############
+        NOT ENOUGH DATA
+        ###############
+        """
+        display_string = bcolors.FAIL + display_string + bcolors.ENDC
+        print display_string
+
+    def solve(self, B, C, D, E, Q, A_init=None, interactive=False, disp=True,
         verbose=False, debug=False, N_iter=500, N_iter_short=20,
         N_iter_long=40, search_tol=1e-1, tol=1e-1, min_step_size=1e-6,
         methods=['frank_wolfe']):
@@ -146,7 +156,8 @@ class A_problem(object):
         scale_factor = (max(np.linalg.norm(C-B, 2), np.linalg.norm(E,2)))
         if scale_factor < 1e-6 or np.linalg.norm(D, 2) < 1e-6:
             # If A has no observations, not much we can say
-            return .5*np.eye(self.dim)
+            self.print_fail_banner()
+            return None 
 
         C = C/scale_factor
         B = B/scale_factor
@@ -188,11 +199,11 @@ class A_problem(object):
         lower_norm = np.linalg.norm(D, 2)
         norm_estimate = np.sqrt(upper_norm/lower_norm)
 
-        if False:
+        if True:
             X_init = np.zeros((prob_dim, prob_dim))
             set_entries(X_init, D_Q_cds, D_Q)
-            set_entries(X_init, A_cds, norm_estimate*np.eye(self.dim))
-            set_entries(X_init, A_T_cds, norm_estimate*np.eye(self.dim))
+            set_entries(X_init, A_cds, A_init)
+            set_entries(X_init, A_T_cds, A_init.T)
             set_entries(X_init, Dinv_cds, Dinv)
             min_eig = np.amin(np.linalg.eigh(X_init)[0])
             if min_eig < 0:
@@ -210,6 +221,7 @@ class A_problem(object):
         g.save_constraints(prob_dim, obj, grad_obj, As, bs, Cs, ds,
                 Fs, gradFs, Gs, gradGs)
         (U, X, succeed) = g.solve(N_iter, tol, search_tol,
+                N_iter_short=N_iter_short, N_iter_long=N_iter_long,
                 interactive=interactive, disp=disp, verbose=verbose,
                 debug=debug, Rs=Rs, min_step_size=min_step_size,
                 methods=methods, X_init=X_init)

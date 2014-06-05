@@ -227,7 +227,8 @@ class MetastableSwitchingLDS(object):
         print(display_string)
 
     def fit(self, data, gamma=.5, print_status=False, tol=1e-1,
-                search_tol=1e-1, verbose=False, N_iter=500):
+                search_tol=1e-1, verbose=False, N_iter=500,
+                N_iter_short=20, N_iter_long=40):
         """Estimate model parameters.
         """
         self._init(data)
@@ -270,7 +271,9 @@ class MetastableSwitchingLDS(object):
                     = self.solver.do_mstep(self.As_, self.Qs_,
                             self.bs_, self.means_, self.covars_, stats,
                             gamma=gamma, tol=tol, verbose=verbose,
-                            N_iter=N_iter, search_tol=search_tol)
+                            N_iter=N_iter, N_iter_short=N_iter_short,
+                            N_iter_long=N_iter_long,
+                            search_tol=search_tol)
             self.print_parameters(phase="Learning Step " + str(i),
                     logprob=curr_logprob, print_status=print_status)
 

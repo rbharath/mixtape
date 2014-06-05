@@ -156,13 +156,26 @@ def project_trajectory(sample_traj, means, atom_index_per_mean):
             projected[t,i] = sample_traj[t][ind] - means[i][ind]
     return projected
 
+def project_trajectory_simple(sample_traj, means):
+    sim_T = len(sample_traj)
+    red_dim = len(means)
+    projected = np.zeros((sim_T, red_dim))
+    for t in range(sim_T):
+        for i in range(red_dim):
+            projected[t,i] = np.linalg.norm(sample_traj[t] - means[i])
+    return projected
+
 def plot_coords(sample_traj, means, atom_indices_per_mean, scatter=False,
+                simple=True,
                 xlabel="Order Parameter 1", ylabel="Order Parameter 2"):
     import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    projected = project_trajectory(sample_traj, means,
-                    atom_indices_per_mean)
+    if simple:
+        projected = project_trajectory_simple(sample_traj, means)
+    else:
+        projected = project_trajectory(sample_traj, means,
+                        atom_indices_per_mean)
     if scatter:
         ax.scatter(projected[:, 0], projected[:, 1])
     else:
@@ -205,6 +218,8 @@ def gen_trajectory(sample_traj, hidden_states, n_components, n_features,
             if t > 0:
                 states[h][i].superpose(gen_traj, t-1)
             Z = states[h][i].xyz[:, atom_indices]
+            if len(Z) == 0:
+                continue
             Z = np.reshape(Z, (len(Z), n_features), order='F')
             cur_sample = sample_traj[t]
             cur_sample = np.tile(cur_sample, (len(Z), 1))
