@@ -350,7 +350,7 @@ def test_src_kinase():
         n_frames = trajs[0].n_frames
         n_atoms = len(atom_indices) 
         n_features = n_atoms * 3
-        n_components = 2
+        n_components = 3
         gamma = .1
         sim_T = 100
         tol = 3e-1
@@ -386,19 +386,22 @@ def test_src_kinase():
             print("MSLDS Log-Likelihood = %f" %  mslds_score)
 
             # Save the learned model
+            print("Saving learned model")
             save_mslds_to_json_dict(model, 'src_kinase.json')
-            # Generate a trajectory from learned model.
-            sample_traj, hidden_states = model.sample(sim_T)
+            ## Generate a trajectory from learned model.
+            #print("Generating model")
+            #sample_traj, hidden_states = model.sample(sim_T)
         else:
             sample_traj = np.random.rand(sim_T, n_features)
             hidden_states = np.random.randint(n_components, size=(sim_T,))
 
-        # Fit Gaussian HMM for comparison
-        g = GaussianFusionHMM(n_components, n_features)
-        g.fit(data)
-        hmm_score = g.score(data)
-        print("HMM Log-Likelihood = %f" %  hmm_score)
-        print
+        ## Fit Gaussian HMM for comparison
+        #print("Fitting HMM for comparison")
+        #g = GaussianFusionHMM(n_components, n_features)
+        #g.fit(data)
+        #hmm_score = g.score(data)
+        #print("HMM Log-Likelihood = %f" %  hmm_score)
+        #print
 
         #new_atom_indices = range(n_atoms)
         #gen_trajectory(sample_traj, hidden_states, n_components, 
