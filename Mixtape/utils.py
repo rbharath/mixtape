@@ -30,6 +30,7 @@ from numpy.linalg import norm
 import pickle
 from sklearn.mixture.gmm import log_multivariate_normal_density
 from numpy.random import multivariate_normal
+import matplotlib.pyplot as plt
 
 #-----------------------------------------------------------------------------
 # Code
@@ -165,10 +166,12 @@ def project_trajectory_simple(sample_traj, means):
             projected[t,i] = np.linalg.norm(sample_traj[t] - means[i])
     return projected
 
+#def plot_mult_coords(trajs, means, atom_indices_per_mean, colors):
+#    for traj, mean, a
+
 def plot_coords(sample_traj, means, atom_indices_per_mean, scatter=False,
                 simple=True,
                 xlabel="Order Parameter 1", ylabel="Order Parameter 2"):
-    import matplotlib.pyplot as plt
     fig = plt.figure()
     ax = fig.add_subplot(111)
     if simple:
@@ -176,10 +179,13 @@ def plot_coords(sample_traj, means, atom_indices_per_mean, scatter=False,
     else:
         projected = project_trajectory(sample_traj, means,
                         atom_indices_per_mean)
+    T = np.shape(projected)[0]
     if scatter:
-        ax.scatter(projected[:, 0], projected[:, 1])
+        ax.scatter(projected[:, 0], projected[:, 1],
+            color=np.arange(T)/T)
     else:
-        ax.plot(projected[:, 0], projected[:, 1])
+        ax.plot(projected[:, 0], projected[:, 1], 
+            color=np.arange(T)/T)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.show()

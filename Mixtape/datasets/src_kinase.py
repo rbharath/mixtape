@@ -22,7 +22,7 @@ from mixtape.datasets.base import get_data_home
 
 # Add this back in once uploaded to figshare
 #DATA_URL = "http://downloads.figshare.com/article/public/1026131"
-TARGET_DIRECTORY = "src_kinase"
+TARGET_DIRECTORY = "src_kinase/Trajectories"
 
 def src_kinase_atom_indices():
     """
@@ -51,7 +51,7 @@ def src_kinase_atom_indices():
     indices += range(2504, 2524+1)
     return indices
 
-def fetch_src_kinase(data_home=None, download_if_missing=True):
+def fetch_src_kinase(data_home=None):
     """Loader for the src kinase dataset
 
     Parameters
@@ -59,10 +59,6 @@ def fetch_src_kinase(data_home=None, download_if_missing=True):
     data_home : optional, default: None
         Specify another download and cache folder for the datasets. By default
         all mixtape data is stored in '~/mixtape_data' subfolders.
-
-    download_if_missing: optional, True by default
-        If False, raise a IOError if the data is not locally available
-        instead of trying to download the data from the source site.
 
     Notes
     -----
@@ -73,12 +69,13 @@ def fetch_src_kinase(data_home=None, download_if_missing=True):
         makedirs(data_home)
 
     data_dir = join(data_home, TARGET_DIRECTORY)
-    if not exists(data_dir):
-        print("ERROR: automatic download not supported yet for Src Kinase.")
 
     top = md.load(join(data_dir, 'protein_8041.pdb'))
     trajectories = []
+    count = 0
     for fn in glob(join(data_dir, 'trj*.lh5')):
+        if np.mod(count, 10) == 0:
+            print("Fetch Trajectory %d"%count)
         trajectories.append(md.load(fn, top=top))
-
+        count += 1
     return Bunch(trajectories=trajectories, DESCR=__doc__)

@@ -202,8 +202,8 @@ class A_problem(object):
         if True:
             X_init = np.zeros((prob_dim, prob_dim))
             set_entries(X_init, D_Q_cds, D_Q)
-            set_entries(X_init, A_cds, A_init)
-            set_entries(X_init, A_T_cds, A_init.T)
+            #set_entries(X_init, A_cds, A_init)
+            #set_entries(X_init, A_T_cds, A_init.T)
             set_entries(X_init, Dinv_cds, Dinv)
             min_eig = np.amin(np.linalg.eigh(X_init)[0])
             if min_eig < 0:
@@ -230,9 +230,17 @@ class A_problem(object):
             # Sometimes A's norm is too big due to numerical issues.
             # Scale down to preserve stability in this case
             norm = np.linalg.norm(A, 2)
+            X_init = np.zeros((prob_dim, prob_dim))
+            set_entries(X_init, A_cds, A_init)
+            set_entries(X_init, A_T_cds, A_init.T)
             if norm >= 1:
                 A *= (norm_estimate/norm)
-            return A
+            print "obj(X_init) = %f"%obj(X_init)
+            print "obj(X) = %f"%obj(X)
+            if obj(X_init) <= U:
+                return A_init
+            else:
+                return A
 
     def print_test_case(self, test_file, B, C, D, E, Q):
         matrices = [(B, "B"), (C, "C"), (D, "D"), (E, "E"), (Q, "Q")]

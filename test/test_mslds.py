@@ -32,7 +32,8 @@ def test_plusmin():
         n_experiments = 1
         n_seq = 1
         T = 2000
-        gamma = 1. 
+        tol=3e-1
+        gamma = .2 
 
         # Generate data
         plusmin = PlusminModel()
@@ -45,7 +46,7 @@ def test_plusmin():
         model = MetastableSwitchingLDS(n_components, n_features,
                 n_hotstart=n_hotstart, n_em_iter=n_em_iter,
                 n_experiments=n_experiments)
-        model.fit(data, gamma=gamma, verbose=False, N_iter_short=40,
+        model.fit(data, gamma=gamma, tol=tol, verbose=False, N_iter_short=40,
                     N_iter_long=80)
         mslds_score = model.score(data)
         print("gamma = %f" % gamma)
@@ -169,7 +170,7 @@ def test_doublewell():
         model = MetastableSwitchingLDS(n_components, n_features,
             n_experiments=n_experiments, n_em_iter=n_em_iter,
             n_hotstart=n_hotstart)
-        model.fit(data, gamma=gamma, tol=tol, verbose=True)
+        model.fit(data, gamma=gamma, tol=tol, verbose=False)
         mslds_score = model.score(data)
         print("MSLDS Log-Likelihood = %f" %  mslds_score)
 
@@ -213,7 +214,7 @@ def test_alanine():
         n_components = 2
         atom_indices = range(n_atoms)
         sim_T = 100
-        gamma = .1
+        gamma = .05
         out = "alanine_test"
 
         data_home = get_data_home()
@@ -222,7 +223,6 @@ def test_alanine():
         # Superpose m
         data = []
         # For debugging
-        trajs = trajs[:2]
         for traj in trajs:
             traj.superpose(top)
             Z = traj.xyz
@@ -232,7 +232,7 @@ def test_alanine():
         # Fit MSLDS model 
         n_experiments = 1
         n_em_iter = 3
-        tol = 1e-1
+        tol = 2e-1
         search_tol = 1
         if LEARN:
             model = MetastableSwitchingLDS(n_components, 
@@ -293,7 +293,6 @@ def test_met_enk():
         top = md.load(join(data_dir, '1plx.pdb'))
         # Superpose m
         data = []
-        # For ease of debuggin
         for traj in trajs:
             "Superposing Trajectory"
             traj.superpose(top)
@@ -304,7 +303,7 @@ def test_met_enk():
         # Fit MSLDS model 
         n_experiments = 1
         n_em_iter = 3
-        tol = 1. 
+        tol = 2e-1
         search_tol = 1.
         if LEARN:
             model = MetastableSwitchingLDS(n_components, 
@@ -361,14 +360,18 @@ def test_src_kinase():
         data_home = get_data_home()
         data_dir = join(data_home, TARGET_DIRECTORY_SRC)
         top = md.load(join(data_dir, 'protein_8041.pdb'))
+        top.restrict_atoms(atom_indices)
         # Superpose m
         data = []
-        trajs = trajs[:2]
+        count = 0
         for traj in trajs:
-            traj.superpose(top, atom_indices=atom_indices)
-            Z = traj.xyz[:, atom_indices]
+            if np.mod(count, 10) == 0:
+                print("Reshaping Trajectory %d"%count)
+            traj.superpose(top)
+            Z = traj.xyz
             Z = np.reshape(Z, (len(Z), n_features), order='F')
             data.append(Z)
+            count += 1
 
         # Fit MSLDS model 
         n_experiments = 1
@@ -397,8 +400,9 @@ def test_src_kinase():
         print("HMM Log-Likelihood = %f" %  hmm_score)
         print
 
-        gen_trajectory(sample_traj, hidden_states, n_components, 
-                        n_features, trajs, out, g, sim_T, atom_indices)
+        #new_atom_indices = range(n_atoms)
+        #gen_trajectory(sample_traj, hidden_states, n_components, 
+        #                n_features, trajs, out, g, sim_T, new_atom_indices)
 
 
     except:
