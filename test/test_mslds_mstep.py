@@ -28,8 +28,10 @@ def test_AQb_solve_simple():
     Dinv = np.array([[1.]])
     E = np.array([[1.]])
     F = np.array([[1.]])
+    g = 1.
+    iteration = 0.
     solver = MetastableSwitchingLDSSolver(n_components, n_features)
-    solver.AQb_solve(A, Q, mu, B, C, D, E, F)
+    solver.AQb_solve(A, Q, mu, B, C, D, E, F, g, iteration)
 
 def test_AQb_solve_plusmin():
     # Numbers below were generated from a sample run of
@@ -46,8 +48,10 @@ def test_AQb_solve_plusmin():
     Dinv = np.array([[49.02]])
     E = np.array([[48.99]])
     F = np.array([[25.47]])
+    g = 1.
+    iteration = 0.
     solver = MetastableSwitchingLDSSolver(n_components, n_features)
-    solver.AQb_solve(A, Q, mu, B, C, D, E, F)
+    solver.AQb_solve(A, Q, mu, B, C, D, E, F, g, iteration)
 
 def test_plusmin_mstep():
     # Set constants
