@@ -583,9 +583,6 @@ def test_src_kinase():
             # Save the learned model
             print("Saving learned model")
             save_mslds_to_json_dict(model, 'src_kinase.json')
-            ## Generate a trajectory from learned model.
-            #print("Generating model")
-            #sample_traj, hidden_states = model.sample(sim_T)
         else:
             sample_traj = np.random.rand(sim_T, n_features)
             hidden_states = np.random.randint(n_components, size=(sim_T,))
