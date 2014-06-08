@@ -230,15 +230,18 @@ class A_problem(object):
             # Sometimes A's norm is too big due to numerical issues.
             # Scale down to preserve stability in this case
             norm = np.linalg.norm(A, 2)
-            X_init = np.zeros((prob_dim, prob_dim))
-            set_entries(X_init, A_cds, A_init)
-            set_entries(X_init, A_T_cds, A_init.T)
             if norm >= 1:
                 A *= (norm_estimate/norm)
-            print "obj(X_init) = %f"%obj(X_init)
-            print "obj(X) = %f"%obj(X)
-            if obj(X_init) <= U:
-                return A_init
+            if A_init != None:
+                X_init = np.zeros((prob_dim, prob_dim))
+                set_entries(X_init, A_cds, A_init)
+                set_entries(X_init, A_T_cds, A_init.T)
+                print "obj(X_init) = %f"%obj(X_init)
+                print "obj(X) = %f"%obj(X)
+                if obj(X_init) <= U:
+                    return A_init
+                else:
+                    return A
             else:
                 return A
 

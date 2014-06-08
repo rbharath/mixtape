@@ -86,11 +86,10 @@ def test_A_solve_1():
 
     The solution to this problem is A = 0 when dim = 1.
     """
-    tol = 1e-2
+    tol = 1e-1
     search_tol = 2.
     N_iter = 100
-    #dims = [16, 32, 64, 128, 256]
-    dims = [512]
+    dims = [16, 32]
     scale = 10.
     for dim in dims:
         a_prob = A_problem(dim)
@@ -105,7 +104,7 @@ def test_A_solve_1():
         # Call solver
         t_start = time.time()
         A = a_prob.solve(B, C, D, E, Q, tol=tol, search_tol=search_tol,
-                            verbose=True)
+                            verbose=False)
         t_end = time.time()
 
         #print "A\n", A
@@ -127,8 +126,9 @@ def test_A_solve_2():
 
     The solution to this problem is A = 0 when dim = 1.
     """
-    dims = [1]
-    tol = 1e-4
+    dims = [4, 16]
+    tol = 1e-1
+    search_tol = 2.
     for dim in dims:
         a_prob = A_problem(dim)
 
@@ -141,10 +141,9 @@ def test_A_solve_2():
 
         # Call solver
         t_start = time.time()
-        A = a_prob.solve(B, C, D, E, Q, tol=tol)
+        A = a_prob.solve(B, C, D, E, Q, tol=tol, search_tol=search_tol)
         t_end = time.time()
 
-        print "A\n", A
         print "total time: ", (t_end - t_start)
         assert np.linalg.norm(A,2) < 1
 
@@ -164,8 +163,8 @@ def test_A_solve_3():
     The solution to this problem is A = 0 when dim = 1.
     """
     eps = 1e-4
-    tol = 2e-2
-    search_tol = 1e-2
+    tol = 1e-1
+    search_tol = 1
     N_iter = 100
     Rs = [10]
     np.set_printoptions(precision=2)
@@ -186,7 +185,7 @@ def test_A_solve_3():
                       [-599.79918374, 1782.52514543]])
         # Call solver
         t_start = time.time()
-        A = a_prob.solve(B, C, D, E, Q, tol=tol)
+        A = a_prob.solve(B, C, D, E, Q, tol=tol, search_tol=search_tol)
         t_end = time.time()
 
         print "A\n", A
@@ -341,24 +340,6 @@ def test_A_solve_muller_4():
     print "A\n", A
     print "total time: ", (t_end - t_start)
     assert np.linalg.norm(A,2) < 1
-
-def test_A_solve_muller_5():
-	#Auto-generated test case from failing run of
-	#A-solve:
-	import numpy as np
-	import pickle
-	import time
-	from mixtape.mslds_solvers.A_problems import A_problem
-	from mixtape.mslds_solvers.Q_problems import Q_problem
-	n_features = 2
-	a_prob = A_problem(n_features)
-	B = pickle.load(open("B_A_test653.p", "r"))
-	C = pickle.load(open("C_A_test653.p", "r"))
-	D = pickle.load(open("D_A_test653.p", "r"))
-	E = pickle.load(open("E_A_test653.p", "r"))
-	Q = pickle.load(open("Q_A_test653.p", "r"))
-	a_prob.solve(B, C, D, E, Q, 
-		disp=True, debug=False, verbose=True)
 
 def test_A_solve_alanine():
     #Auto-generated test case from failing run of

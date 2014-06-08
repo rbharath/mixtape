@@ -3,6 +3,8 @@ from mixtape._reversibility import reversible_transmat
 from mixtape.mslds_solvers.sparse_sdp.utils import get_entries, set_entries
 from mixtape.mslds_solvers.A_problems import A_problem
 from mixtape.mslds_solvers.Q_problems import Q_problem
+from mixtape.mslds_solvers.A_problems_no_stability import A_problem_no_stability 
+from mixtape.mslds_solvers.Q_problems_no_stability import Q_problem_no_stability
 from mixtape.utils import bcolors
 import pickle
 
@@ -19,6 +21,8 @@ class MetastableSwitchingLDSSolver(object):
         self.n_features = n_features
         self.a_prob = A_problem(n_features)
         self.q_prob = Q_problem(n_features)
+        self.a_prob_no_stability = A_problem_no_stability(n_features)
+        self.q_prob_no_stability = Q_problem_no_stability(n_features)
 
     def do_hmm_mstep(self, stats):
         print "Starting hmm mstep"
@@ -34,7 +38,7 @@ class MetastableSwitchingLDSSolver(object):
     def do_mstep(self, As, Qs, bs, means, covars, stats, N_iter=500,
                     N_iter_short=20, N_iter_long=40,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=1,
-                    search_tol=1e-1):
+                    search_tol=1e-1, stable=True):
         # Remove these copies once the memory error is isolated.
         covars = np.copy(covars)
         means = np.copy(means)
@@ -46,7 +50,8 @@ class MetastableSwitchingLDSSolver(object):
                 means, covars, stats, N_iter=N_iter,
                 N_iter_short=N_iter_short, N_iter_long=N_iter_long,
                 verbose=verbose, gamma=gamma, tol=tol,
-                num_biconvex=num_biconvex, search_tol=search_tol)
+                num_biconvex=num_biconvex, search_tol=search_tol,
+                stable=stable)
         return transmat, A_upds, Q_upds, b_upds
 
     def covars_update(self, means, stats):
@@ -115,7 +120,7 @@ class MetastableSwitchingLDSSolver(object):
     def AQb_update(self, As, Qs, bs, means, covars, stats, N_iter=500,
                     N_iter_short=20, N_iter_long=40,
                     verbose=False, gamma=.5, tol=1e-1, num_biconvex=2,
-                    search_tol=1e-1):
+                    search_tol=1e-1, stable=True):
         Bs, Cs, Es, Ds, Fs, gs = self.compute_aux_matrices(As, bs, 
                                                         covars, stats)
         self.print_aux_matrices(Bs, Cs, Es, Ds, Fs, gs)
@@ -124,11 +129,20 @@ class MetastableSwitchingLDSSolver(object):
         for i in range(self.n_components):
             B, C, D, E, F, g = Bs[i], Cs[i], Ds[i], Es[i], Fs[i], gs[i]
             A, Q, mu = As[i], Qs[i], means[i]
-            A_upd, Q_upd, b_upd = self.AQb_solve(A, Q, mu, B,
-                    C, D, E, F, g, i, N_iter=N_iter, N_iter_short=N_iter_short,
-                    N_iter_long=N_iter_long, verbose=verbose,
-                    gamma=gamma, tol=tol, num_biconvex=num_biconvex,
-                    search_tol=search_tol)
+            if stable:
+                A_upd, Q_upd, b_upd = self.AQb_solve(A, Q, mu, B,
+                        C, D, E, F, g, i, N_iter=N_iter, 
+                        N_iter_short=N_iter_short,
+                        N_iter_long=N_iter_long, verbose=verbose,
+                        gamma=gamma, tol=tol, num_biconvex=num_biconvex,
+                        search_tol=search_tol)
+            else:
+                A_upd, Q_upd, b_upd = self.AQb_solve_no_stability(A, Q, mu, B,
+                        C, D, E, F, g, i, N_iter=N_iter, 
+                        N_iter_short=N_iter_short,
+                        N_iter_long=N_iter_long, verbose=verbose,
+                        gamma=gamma, tol=tol, num_biconvex=num_biconvex,
+                        search_tol=search_tol)
             A_upds += [A_upd]
             Q_upds += [Q_upd]
             b_upds += [b_upd]
@@ -161,6 +175,38 @@ class MetastableSwitchingLDSSolver(object):
                     A, D, F)
             self.print_banner("A-%d"%iteration)
             A_upd = self.a_prob.solve(B, C, D, E, Q, A_init=A,
+                interactive=interactive, disp=disp, debug=debug, N_iter=N_iter,
+                N_iter_short=N_iter_short, N_iter_long=N_iter_long,
+                verbose=verbose, tol=tol, search_tol=search_tol)
+            if A_upd != None:
+                A = A_upd
+            else:
+                self.a_prob.print_test_case("autogen_A_tests.py", 
+                    B, C, D, E, Q)
+        b = self.b_solve(A, mu)
+        return A, Q, b
+
+    def AQb_solve_no_stability(self, A, Q, mu, B, C, D, E, F, g, iteration,
+        interactive=False, disp=True, verbose=False, debug=False, N_iter=500,
+        N_iter_short=20, N_iter_long=40, gamma=.5, tol=1e-1, num_biconvex=2,
+        search_tol=1e-1):
+        print "HIHIHIHIHIHIHIHIHIHIHIHIH!"
+        for i in range(num_biconvex):
+            self.print_banner("Q-%d"%iteration)
+            Q_upd = self.q_prob_no_stability.solve(A, D, F, g, 
+                        interactive=interactive,
+                        disp=disp, debug=debug, verbose=verbose,
+                        tol=tol, N_iter=N_iter,
+                        N_iter_short=N_iter_short, N_iter_long=N_iter_long,
+                        search_tol=search_tol)
+            if Q_upd != None:
+                Q = Q_upd
+            else:
+                self.q_prob.print_test_case("autogen_Q_tests.py", 
+                    A, D, F)
+            self.print_banner("A-%d"%iteration)
+            d = .9
+            A_upd = self.a_prob_no_stability.solve(d, B, C, E, Q, A_init=A,
                 interactive=interactive, disp=disp, debug=debug, N_iter=N_iter,
                 N_iter_short=N_iter_short, N_iter_long=N_iter_long,
                 verbose=verbose, tol=tol, search_tol=search_tol)
