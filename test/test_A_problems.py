@@ -40,37 +40,31 @@ def test_objective():
             assert diff < tol
 
 def test_A_constraints():
-    import pdb, traceback, sys
-    try:
-        dims = [1, 2]
+    dims = [1, 2]
+    N_rand = 10
+    tol = 1e-3
+    eps = 1e-4
+    np.set_printoptions(precision=3)
+    for dim in dims:
+        a_prob = A_problem(dim)
+        prob_dim = a_prob.scale * dim
+        # Generate initial data
+        D = np.eye(dim)
+        Dinv = np.linalg.inv(D)
+        Q = 0.5*np.eye(dim)
+        mu = np.ones((dim, 1))
+        As, bs, Cs, ds, Fs, gradFs, Gs, gradGs = \
+                a_prob.constraints(D, Dinv, Q)
         N_rand = 10
-        tol = 1e-3
-        eps = 1e-4
-        np.set_printoptions(precision=3)
-        for dim in dims:
-            a_prob = A_problem(dim)
-            prob_dim = a_prob.scale * dim
-            # Generate initial data
-            D = np.eye(dim)
-            Dinv = np.linalg.inv(D)
-            Q = 0.5*np.eye(dim)
-            mu = np.ones((dim, 1))
-            As, bs, Cs, ds, Fs, gradFs, Gs, gradGs = \
-                    a_prob.constraints(D, Dinv, Q)
-            N_rand = 10
-            for (g, gradg) in zip(Gs, gradGs):
-                for i in range(N_rand):
-                    X = np.random.rand(prob_dim, prob_dim)
-                    val = g(X)
-                    grad = gradg(X)
-                    print "grad:\n", grad
-                    num_grad = numerical_derivative(g, X, eps)
-                    print "num_grad:\n", num_grad
-                    assert np.sum(np.abs(grad - num_grad)) < tol
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+        for (g, gradg) in zip(Gs, gradGs):
+            for i in range(N_rand):
+                X = np.random.rand(prob_dim, prob_dim)
+                val = g(X)
+                grad = gradg(X)
+                print "grad:\n", grad
+                num_grad = numerical_derivative(g, X, eps)
+                print "num_grad:\n", num_grad
+                assert np.sum(np.abs(grad - num_grad)) < tol
 
 def test_A_solve_1():
     """
@@ -169,33 +163,26 @@ def test_A_solve_3():
     Rs = [10]
     np.set_printoptions(precision=2)
     dim = 2
-    import pdb, traceback, sys
-    try:
-        a_prob = A_problem(dim)
+    a_prob = A_problem(dim)
 
-        # Generate random data
-        D = np.array([[0.00326556, 0.00196009],
-                      [0.00196009, 0.00322879]])
-        Q = 0.9 * D
-        C = np.array([[202.83070879, -600.32796941],
-                      [-601.76432584, 1781.07130791]])
-        B = np.array([[208.27749525,  -597.11827148],
-                      [ -612.99179464, 1771.25551671]])
-        E = np.array([[205.80695137, -599.79918374],
-                      [-599.79918374, 1782.52514543]])
-        # Call solver
-        t_start = time.time()
-        A = a_prob.solve(B, C, D, E, Q, tol=tol, search_tol=search_tol)
-        t_end = time.time()
+    # Generate random data
+    D = np.array([[0.00326556, 0.00196009],
+                  [0.00196009, 0.00322879]])
+    Q = 0.9 * D
+    C = np.array([[202.83070879, -600.32796941],
+                  [-601.76432584, 1781.07130791]])
+    B = np.array([[208.27749525,  -597.11827148],
+                  [ -612.99179464, 1771.25551671]])
+    E = np.array([[205.80695137, -599.79918374],
+                  [-599.79918374, 1782.52514543]])
+    # Call solver
+    t_start = time.time()
+    A = a_prob.solve(B, C, D, E, Q, tol=tol, search_tol=search_tol)
+    t_end = time.time()
 
-        print "A\n", A
-        print "total time: ", (t_end - t_start)
-        assert np.linalg.norm(A,2) < 1
-
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+    print "A\n", A
+    print "total time: ", (t_end - t_start)
+    assert np.linalg.norm(A,2) < 1
 
 def test_A_solve_plusmin():
     n_features = 1

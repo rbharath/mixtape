@@ -10,38 +10,32 @@ def test_log_det():
     N_rand = 10
     tol = 1e-1
     eps = 1e-4
-    import pdb, traceback, sys
-    try:
-        for dim in dims:
-            q_prob = Q_problem_no_stability(dim)
-            (R_cds) = q_prob.coords()
-            prob_dim = q_prob.scale * dim
+    for dim in dims:
+        q_prob = Q_problem_no_stability(dim)
+        (R_cds) = q_prob.coords()
+        prob_dim = q_prob.scale * dim
 
-            # Generate initial data
-            F = np.random.rand(dim, dim)
-            G = np.random.rand()
-            def obj(X):
-                return q_prob.objective(X, F, G)
-            def grad_obj(X):
-                return q_prob.grad_objective(X, F, G)
-            for i in range(N_rand):
-                X = np.random.rand(prob_dim, prob_dim)
-                R = get_entries(X, R_cds)
-                if (np.linalg.det(R) <= 0):
-                    continue
-                val = obj(X)
-                grad = grad_obj(X)
-                num_grad = numerical_derivative(obj, X, eps)
-                diff = np.sum(np.abs(grad - num_grad))
-                if diff >= tol:
-                    print "grad:\n", grad
-                    print "num_grad:\n", num_grad
-                    print "diff: ", diff
-                assert diff < tol
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+        # Generate initial data
+        F = np.random.rand(dim, dim)
+        G = np.random.rand()
+        def obj(X):
+            return q_prob.objective(X, F, G)
+        def grad_obj(X):
+            return q_prob.grad_objective(X, F, G)
+        for i in range(N_rand):
+            X = np.random.rand(prob_dim, prob_dim)
+            R = get_entries(X, R_cds)
+            if (np.linalg.det(R) <= 0):
+                continue
+            val = obj(X)
+            grad = grad_obj(X)
+            num_grad = numerical_derivative(obj, X, eps)
+            diff = np.sum(np.abs(grad - num_grad))
+            if diff >= tol:
+                print "grad:\n", grad
+                print "num_grad:\n", num_grad
+                print "diff: ", diff
+            assert diff < tol
 
 def test_Q_constraints():
     dims = [1, 2]
@@ -80,39 +74,31 @@ def test_Q_solve_1():
          ---
     X is PSD
     """
-    import pdb, traceback, sys
-    try:
-        tol = 1e-2
-        search_tol = 5e-2
-        N_iter = 50
-        dims = [1]
+    tol = 1e-2
+    search_tol = 5e-2
+    N_iter = 50
+    dims = [1]
 
-        for dim in dims:
+    for dim in dims:
 
-            q_prob = Q_problem_no_stability(dim)
-            prob_dim = q_prob.scale * dim
+        q_prob = Q_problem_no_stability(dim)
+        prob_dim = q_prob.scale * dim
 
-            # Generate initial data
-            D = np.eye(dim) 
-            F = np.eye(dim)
-            A = 0.5*(1./dim) * np.eye(dim)
-            G = 1.
+        # Generate initial data
+        D = np.eye(dim) 
+        F = np.eye(dim)
+        A = 0.5*(1./dim) * np.eye(dim)
+        G = 1.
 
-            # Call solver
-            t_start = time.time()
-            Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol)
-            t_end = time.time()
+        # Call solver
+        t_start = time.time()
+        Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol)
+        t_end = time.time()
 
-            print "Q\n", Q
-            print "dim: ", dim
-            print "norm(Q, 2): ", np.linalg.norm(Q, 2)
-            print "total time: ", (t_end - t_start)
-
-            
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+        print "Q\n", Q
+        print "dim: ", dim
+        print "norm(Q, 2): ", np.linalg.norm(Q, 2)
+        print "total time: ", (t_end - t_start)
 
 def test_Q_solve_2():
     """
@@ -126,35 +112,28 @@ def test_Q_solve_2():
          ---
     X is PSD
     """
-    import pdb, traceback, sys
-    try:
-        tol = 1e-2
-        search_tol = 1.
-        N_iter = 150
-        dims = [16]
-        for dim in dims:
-            q_prob = Q_problem_no_stability(dim)
-            prob_dim = q_prob.scale * dim
+    tol = 1e-2
+    search_tol = 1.
+    N_iter = 150
+    dims = [16]
+    for dim in dims:
+        q_prob = Q_problem_no_stability(dim)
+        prob_dim = q_prob.scale * dim
 
-            # Generate initial data
-            D = .0204 * np.eye(dim)
-            F = 25.47 * np.eye(dim)
-            A = np.zeros(dim)
-            G = 1.
+        # Generate initial data
+        D = .0204 * np.eye(dim)
+        F = 25.47 * np.eye(dim)
+        A = np.zeros(dim)
+        G = 1.
 
-            # Call solver
-            t_start = time.time()
-            Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol)
-            t_end = time.time()
+        # Call solver
+        t_start = time.time()
+        Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol)
+        t_end = time.time()
 
-            print "dim: ", dim
-            print "total time: ", (t_end - t_start)
-            print "norm(Q, 2): ", np.linalg.norm(Q, 2)
-
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+        print "dim: ", dim
+        print "total time: ", (t_end - t_start)
+        print "norm(Q, 2): ", np.linalg.norm(Q, 2)
 
 def test_Q_solve_3():
     """
@@ -174,33 +153,26 @@ def test_Q_solve_3():
     np.seterr(divide='raise')
     np.seterr(over='raise')
     np.seterr(invalid='raise')
-    import pdb, traceback, sys
-    try:
-        for dim in dims:
-            q_prob = Q_problem_no_stability(dim)
-            prob_dim = q_prob.scale * dim
+    for dim in dims:
+        q_prob = Q_problem_no_stability(dim)
+        prob_dim = q_prob.scale * dim
 
-            # Generate initial data
-            D = np.array([[0.00326556, 0.00196009],
-                          [0.00196009, 0.00322879]])
-            F = np.array([[2.62197238, 1.58163533],
-                          [1.58163533, 2.58977211]])
-            A = np.zeros((dim, dim))
-            G = 1.
+        # Generate initial data
+        D = np.array([[0.00326556, 0.00196009],
+                      [0.00196009, 0.00322879]])
+        F = np.array([[2.62197238, 1.58163533],
+                      [1.58163533, 2.58977211]])
+        A = np.zeros((dim, dim))
+        G = 1.
 
-            # Call solver
-            t_start = time.time()
-            Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol)
-            t_end = time.time()
+        # Call solver
+        t_start = time.time()
+        Q = q_prob.solve(A, D, F, G, tol=tol, search_tol=search_tol)
+        t_end = time.time()
 
-            print "D:\n", D
-            print "Q:\n", Q
-            print "norm(Q, 2): ", np.linalg.norm(Q, 2)
-
-    except:
-        type, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+        print "D:\n", D
+        print "Q:\n", Q
+        print "norm(Q, 2): ", np.linalg.norm(Q, 2)
 
 def test_Q_solve_plusmin():
     n_features = 1 
