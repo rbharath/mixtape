@@ -190,7 +190,6 @@ class MetastableSwitchingLDSSolver(object):
         interactive=False, disp=True, verbose=False, debug=False, N_iter=500,
         N_iter_short=20, N_iter_long=40, gamma=.5, tol=1e-1, num_biconvex=2,
         search_tol=1e-1):
-        print "HIHIHIHIHIHIHIHIHIHIHIHIH!"
         for i in range(num_biconvex):
             self.print_banner("Q-%d"%iteration)
             Q_upd = self.q_prob_no_stability.solve(A, D, F, g, 
